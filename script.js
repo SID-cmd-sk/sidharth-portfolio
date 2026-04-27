@@ -9,17 +9,106 @@ let DATA = {};
 /* ===== DATA LOAD ===== */
 async function loadData() {
   try {
-    // Try localStorage admin overrides first
     const saved = localStorage.getItem('portfolio_data');
     if (saved) {
       DATA = JSON.parse(saved);
     } else {
       const res = await fetch('data/portfolio.json');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
       DATA = await res.json();
     }
   } catch (e) {
-    const res = await fetch('data/portfolio.json');
-    DATA = await res.json();
+    console.warn('portfolio.json load failed, using fallback data.', e);
+    DATA = {
+      meta: {
+        name: 'Sidharth',
+        title: 'Application Engineer',
+        subtitle: 'SolidWorks · SolidCAM · DraftSight · CNC Programming',
+        email: 'sidharthkr1859@gmail.com',
+        phone: '7042071859',
+        location: 'Badarpur, South Delhi, Delhi – 110044',
+        socialLinks: { linkedin: '#', github: '#' }
+      },
+      about: 'Application Engineer with hands-on expertise in SolidWorks, SolidCAM, and DraftSight. Passionate about bridging the gap between digital design and physical manufacturing—from generating precision CAD models and CAM toolpaths to automating drafting workflows with AutoLISP scripts and validating G-code for CNC machines.',
+      skills: [
+        { name: 'SolidWorks', level: 95, category: 'CAD' },
+        { name: 'SolidCAM', level: 90, category: 'CAM' },
+        { name: 'DraftSight', level: 88, category: 'CAD' },
+        { name: 'CNC Programming (G-Code)', level: 82, category: 'CNC' },
+        { name: 'AutoLISP Scripting', level: 75, category: 'Programming' },
+        { name: 'CAM Toolpath Generation', level: 87, category: 'CAM' }
+      ],
+      experience: [
+        {
+          id: 'exp1',
+          company: 'SKS Scan tech Engg. Exim Pvt. Ltd.',
+          role: 'Application Engineer',
+          period: 'Dec 2024 – Present',
+          type: 'Full-Time',
+          description: 'Handle technical support, training, and workflow issues for SolidWorks, SolidCAM and DraftSight. Create and refine CAD models, CAM toolpaths, and CNC post processors. Build AutoLISP scripts to automate drafting tasks.',
+          highlights: ['Technical Support', 'CAD/CAM Training', 'AutoLISP Automation', 'G-Code Validation', 'Post Processor Development']
+        },
+        {
+          id: 'exp2',
+          company: 'Rico Auto Industries',
+          role: 'Apprentice – Design & Machining Support',
+          period: 'May 2024 – Dec 2024',
+          type: 'Apprenticeship',
+          description: 'Reviewed and interpreted engineering drawings and CAD models before part production. Modified CAD models to improve manufacturability and machining feasibility.',
+          highlights: ['Engineering Drawing Review', 'CAD Model Modification', 'G-Code Editing', 'Tool Offset Adjustment', 'Design-to-Production Workflow']
+        }
+      ],
+      certifications: [
+        { id: 'c1', name: 'SOLIDWORKS API Professional (CSWP-API)', issuer: 'Dassault Systèmes', level: 'Professional' },
+        { id: 'c2', name: 'SOLIDWORKS Design Professional (CSWP)', issuer: 'Dassault Systèmes', level: 'Professional' },
+        { id: 'c3', name: 'SOLIDWORKS Simulation Associate', issuer: 'Dassault Systèmes', level: 'Associate' },
+        { id: 'c4', name: 'DraftSight Specialist', issuer: 'Dassault Systèmes', level: 'Specialist' },
+        { id: 'c5', name: '3DSwymer Associate', issuer: 'Dassault Systèmes', level: 'Associate' },
+        { id: 'c6', name: 'SOLIDWORKS Design Associate (CSWA)', issuer: 'Dassault Systèmes', level: 'Associate' },
+        { id: 'c7', name: 'SOLIDWORKS CAM Professional', issuer: 'Dassault Systèmes', level: 'Professional' },
+        { id: 'c8', name: 'DraftSight Associate', issuer: 'Dassault Systèmes', level: 'Associate' },
+        { id: 'c9', name: 'Certified SolidCAM Academic Professional', issuer: 'SolidCAM', level: 'Professional' },
+        { id: 'c10', name: 'Certified SolidCAM Academic Associate', issuer: 'SolidCAM', level: 'Associate' }
+      ],
+      projects: [
+        {
+          id: 'p1', title: 'CNC Post Processor Development', category: 'CNC',
+          tools: ['SolidCAM', 'G-Code', 'CNC'], featured: true,
+          description: 'Developed and refined custom CNC post processors to translate SolidCAM toolpaths into machine-specific G-code. Ensured compatibility across multiple CNC machine configurations at client sites.',
+          highlights: ['Custom post processor scripts', 'Multi-machine compatibility', 'G-code validation workflow']
+        },
+        {
+          id: 'p2', title: 'AutoLISP Drafting Automation Suite', category: 'Programming',
+          tools: ['DraftSight', 'AutoLISP'], featured: true,
+          description: 'Built a suite of AutoLISP scripts to automate repetitive drafting tasks in DraftSight—including auto-dimensioning, layer management, and title block population—reducing manual effort by over 60%.',
+          highlights: ['Auto-dimensioning routines', 'Layer automation', 'Title block population']
+        },
+        {
+          id: 'p3', title: 'CAM Toolpath Optimization', category: 'CAM',
+          tools: ['SolidCAM', 'SolidWorks'], featured: false,
+          description: 'Optimized multi-axis CAM toolpaths for complex parts, reducing machining time while maintaining tight tolerances.',
+          highlights: ['Multi-axis machining', 'Cycle time reduction', 'Tolerance validation']
+        },
+        {
+          id: 'p4', title: 'SolidWorks Training Program', category: 'Training',
+          tools: ['SolidWorks', 'SolidCAM'], featured: false,
+          description: 'Designed and delivered structured training programs for engineering clients covering SolidWorks 3D modelling, assembly, drawing, and SolidCAM fundamentals.',
+          highlights: ['Curriculum development', 'Client-facing delivery', 'Technical documentation']
+        },
+        {
+          id: 'p5', title: 'Manufacturability CAD Model Rework', category: 'CAD',
+          tools: ['SolidWorks', 'DraftSight'], featured: false,
+          description: 'At Rico Auto, reviewed and modified production CAD models to improve manufacturability and reduce machining complexity.',
+          highlights: ['Design-for-manufacturing', 'Part feasibility review', 'Cross-team collaboration']
+        },
+        {
+          id: 'p6', title: 'Software–Machine Integration Troubleshooting', category: 'CNC',
+          tools: ['SolidCAM', 'CNC', 'G-Code'], featured: true,
+          description: 'Diagnosed and resolved integration issues between CAM software and CNC machines at multiple client sites.',
+          highlights: ['Root cause analysis', 'On-site troubleshooting', 'G-code debugging']
+        }
+      ]
+    };
   }
   init();
 }
@@ -45,7 +134,10 @@ function init() {
 function initLoader() {
   setTimeout(() => {
     const loader = document.getElementById('loader');
-    if (loader) loader.style.display = 'none';
+    if (loader) {
+      loader.classList.add('hidden');
+      setTimeout(() => { loader.style.display = 'none'; }, 700);
+    }
     triggerHeroAnimation();
   }, 1600);
 }
@@ -54,6 +146,7 @@ function initLoader() {
 function initCursor() {
   const dot = document.getElementById('cursor-dot');
   const ring = document.getElementById('cursor-ring');
+  if (!dot || !ring) return;
   let mouseX = 0, mouseY = 0;
   let ringX = 0, ringY = 0;
 
@@ -77,6 +170,7 @@ function initCursor() {
 /* ===== PARTICLES ===== */
 function initParticles() {
   const canvas = document.getElementById('bg-particles');
+  if (!canvas) return;
   const ctx = canvas.getContext('2d');
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
@@ -109,7 +203,6 @@ function initParticles() {
       if (p.y < 0) p.y = canvas.height;
       if (p.y > canvas.height) p.y = 0;
     });
-    // draw connections
     for (let i = 0; i < particles.length; i++) {
       for (let j = i + 1; j < particles.length; j++) {
         const dx = particles[i].x - particles[j].x;
@@ -138,17 +231,22 @@ function initParticles() {
 /* ===== NAVBAR ===== */
 function initNavbar() {
   const navbar = document.getElementById('navbar');
+  if (!navbar) return;
   window.addEventListener('scroll', () => {
     navbar.classList.toggle('scrolled', window.scrollY > 50);
   });
-  document.getElementById('hamburger').addEventListener('click', () => {
-    document.getElementById('nav-links').classList.toggle('open');
-  });
+  const hamburger = document.getElementById('hamburger');
+  if (hamburger) {
+    hamburger.addEventListener('click', () => {
+      document.getElementById('nav-links').classList.toggle('open');
+    });
+  }
 }
 
 /* ===== SCROLL PROGRESS ===== */
 function initScrollProgress() {
   const bar = document.getElementById('scroll-progress');
+  if (!bar) return;
   window.addEventListener('scroll', () => {
     const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
     bar.style.width = pct + '%';
@@ -157,29 +255,29 @@ function initScrollProgress() {
 
 /* ===== HERO RENDER ===== */
 function renderHero() {
-  const m = DATA.meta;
-  document.getElementById('hero-desc').textContent = DATA.about;
+  const desc = document.getElementById('hero-desc');
+  if (desc) desc.textContent = DATA.about;
 }
 
 function triggerHeroAnimation() {
-  // Set initial states FIRST before animating
-  gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'],
-    { opacity: 0, y: 30 });
+  // FIX: Set initial states FIRST, then animate into place
+  gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'], { opacity: 0, y: 30 });
   gsap.set('#hero-visual', { opacity: 0, x: 50 });
 
   const tl = gsap.timeline();
-  tl.to('#hero-badge',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.1)
-    .to('#hero-name',    { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 0.25)
-    .to('#hero-title',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.4)
-    .to('#hero-desc',    { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.55)
-    .to('#hero-btns',    { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.65)
-    .to('#hero-stats',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.75)
-    .to('#hero-visual',  { opacity: 1, x: 0, duration: 0.8, ease: 'power3.out' }, 0.3);
+  tl.to('#hero-badge',  { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.1)
+    .to('#hero-name',   { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 0.25)
+    .to('#hero-title',  { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.4)
+    .to('#hero-desc',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.55)
+    .to('#hero-btns',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.65)
+    .to('#hero-stats',  { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.75)
+    .to('#hero-visual', { opacity: 1, x: 0, duration: 0.8, ease: 'power3.out' }, 0.3);
 }
 
 /* ===== ABOUT RENDER ===== */
 function renderAbout() {
-  document.getElementById('about-text').textContent = DATA.about;
+  const aboutText = document.getElementById('about-text');
+  if (aboutText) aboutText.textContent = DATA.about;
 
   const m = DATA.meta;
   const infoData = [
@@ -189,35 +287,40 @@ function renderAbout() {
   ];
 
   const infoList = document.getElementById('info-list');
-  infoList.innerHTML = infoData.map(i => `
-    <div class="info-item">
-      <div class="info-item-icon">${i.icon}</div>
-      <span>${i.label}</span>
-    </div>
-  `).join('');
+  if (infoList) {
+    infoList.innerHTML = infoData.map(i => `
+      <div class="info-item">
+        <div class="info-item-icon">${i.icon}</div>
+        <span>${i.label}</span>
+      </div>
+    `).join('');
+  }
 
   const panel = document.getElementById('skills-panel');
-  panel.innerHTML = DATA.skills.slice(0, 6).map(s => `
-    <div class="skill-item">
-      <div class="skill-header">
-        <span class="skill-name">${s.name}</span>
-        <span class="skill-pct">${s.level}%</span>
+  if (panel) {
+    panel.innerHTML = DATA.skills.slice(0, 6).map(s => `
+      <div class="skill-item">
+        <div class="skill-header">
+          <span class="skill-name">${s.name}</span>
+          <span class="skill-pct">${s.level}%</span>
+        </div>
+        <div class="skill-bar">
+          <div class="skill-fill" data-level="${s.level}"></div>
+        </div>
       </div>
-      <div class="skill-bar">
-        <div class="skill-fill" data-level="${s.level}"></div>
-      </div>
-    </div>
-  `).join('');
+    `).join('');
+  }
 }
 
 /* ===== SKILLS RENDER ===== */
 function renderSkills() {
-  // Skills are rendered inline within about. Extra tag cloud if needed.
+  // Skills are rendered inline within about section.
 }
 
 /* ===== TIMELINE RENDER ===== */
 function renderTimeline() {
   const container = document.getElementById('timeline');
+  if (!container) return;
   container.innerHTML = DATA.experience.map((exp, i) => `
     <div class="timeline-item" data-index="${i}">
       <div class="timeline-dot"></div>
@@ -241,6 +344,7 @@ const CATEGORY_ICONS = { CAD: '🔷', CAM: '⚙️', CNC: '🔩', Programming: '
 function renderProjects() {
   const grid = document.getElementById('projects-grid');
   const filterGroup = document.getElementById('filter-group');
+  if (!grid || !filterGroup) return;
 
   const categories = [...new Set(DATA.projects.map(p => p.category))];
   categories.forEach(cat => {
@@ -267,7 +371,6 @@ function renderProjects() {
     </div>
   `).join('');
 
-  // Filter logic
   document.querySelectorAll('.filter-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
@@ -276,12 +379,13 @@ function renderProjects() {
     });
   });
 
-  document.getElementById('search-input').addEventListener('input', filterProjects);
+  const searchInput = document.getElementById('search-input');
+  if (searchInput) searchInput.addEventListener('input', filterProjects);
 }
 
 function filterProjects() {
   const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
-  const searchTerm = document.getElementById('search-input').value.toLowerCase();
+  const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
   const cards = document.querySelectorAll('.project-card');
 
   cards.forEach(card => {
@@ -329,7 +433,8 @@ function closeModal(e) {
 
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
-    document.getElementById('modal-overlay').classList.remove('active');
+    const overlay = document.getElementById('modal-overlay');
+    if (overlay) overlay.classList.remove('active');
     document.body.style.overflow = '';
   }
 });
@@ -337,6 +442,7 @@ document.addEventListener('keydown', e => {
 /* ===== CERTIFICATIONS RENDER ===== */
 function renderCertifications() {
   const grid = document.getElementById('certs-grid');
+  if (!grid) return;
   grid.innerHTML = DATA.certifications.map(c => `
     <div class="cert-card">
       <div class="cert-icon">🏆</div>
@@ -352,12 +458,14 @@ function renderCertifications() {
 /* ===== CONTACT RENDER ===== */
 function renderContact() {
   const m = DATA.meta;
+  const contactItems = document.getElementById('contact-items');
+  if (!contactItems) return;
   const items = [
     { icon: '📧', label: 'Email', value: m.email },
     { icon: '📱', label: 'Phone', value: m.phone },
     { icon: '📍', label: 'Location', value: m.location },
   ];
-  document.getElementById('contact-items').innerHTML = items.map(i => `
+  contactItems.innerHTML = items.map(i => `
     <div class="contact-item">
       <div class="contact-item-icon">${i.icon}</div>
       <div>
@@ -383,6 +491,7 @@ function submitForm() {
 /* ===== TOAST ===== */
 function showToast(msg) {
   const t = document.getElementById('toast');
+  if (!t) return;
   t.textContent = msg;
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3500);
@@ -390,7 +499,6 @@ function showToast(msg) {
 
 /* ===== SCROLL ANIMATIONS ===== */
 function initAnimations() {
-  // Reveal elements
   gsap.utils.toArray('.reveal').forEach(el => {
     gsap.fromTo(el,
       { opacity: 0, y: 40 },
@@ -401,7 +509,6 @@ function initAnimations() {
     );
   });
 
-  // Skill bars
   ScrollTrigger.create({
     trigger: '#about',
     start: 'top 60%',
@@ -413,7 +520,6 @@ function initAnimations() {
     }
   });
 
-  // Project cards
   ScrollTrigger.create({
     trigger: '#projects-grid',
     start: 'top 85%',
@@ -424,7 +530,6 @@ function initAnimations() {
     }
   });
 
-  // Timeline items
   gsap.utils.toArray('.timeline-item').forEach((item, i) => {
     gsap.to(item, {
       opacity: 1, x: 0, duration: 0.7, ease: 'power3.out',
@@ -433,7 +538,6 @@ function initAnimations() {
     });
   });
 
-  // Cert cards
   ScrollTrigger.create({
     trigger: '#certs-grid',
     start: 'top 85%',
