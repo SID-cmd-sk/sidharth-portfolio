@@ -44,7 +44,8 @@ function init() {
 /* ===== LOADER ===== */
 function initLoader() {
   setTimeout(() => {
-    document.getElementById('loader').classList.add('hidden');
+    const loader = document.getElementById('loader');
+    if (loader) loader.style.display = 'none';
     triggerHeroAnimation();
   }, 1600);
 }
@@ -161,6 +162,11 @@ function renderHero() {
 }
 
 function triggerHeroAnimation() {
+  // Set initial states FIRST before animating
+  gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'],
+    { opacity: 0, y: 30 });
+  gsap.set('#hero-visual', { opacity: 0, x: 50 });
+
   const tl = gsap.timeline();
   tl.to('#hero-badge',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.1)
     .to('#hero-name',    { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 0.25)
@@ -169,11 +175,6 @@ function triggerHeroAnimation() {
     .to('#hero-btns',    { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.65)
     .to('#hero-stats',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.75)
     .to('#hero-visual',  { opacity: 1, x: 0, duration: 0.8, ease: 'power3.out' }, 0.3);
-
-  // Set initial states
-  gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'],
-    { y: 30 });
-  gsap.set('#hero-visual', { x: 50 });
 }
 
 /* ===== ABOUT RENDER ===== */
