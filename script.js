@@ -593,10 +593,25 @@ function renderContact() {
 }
 
 function submitForm() {
-  const n=document.getElementById('form-name').value, e=document.getElementById('form-email').value, m=document.getElementById('form-msg').value;
-  if(!n||!e||!m){showToast('Please fill all fields.');return;}
+  const n=document.getElementById('form-name').value,
+        e=document.getElementById('form-email').value,
+        m=document.getElementById('form-msg').value;
+
+  if(!n||!e||!m){
+    showToast('Please fill all fields.');
+    return;
+  }
+
   showToast("Message sent! I'll get back to you soon.");
-  ['form-name','form-email','form-msg'].forEach(id=>document.getElementById(id).value='');
+
+  gtag('event', 'contact_form_submit', {
+    event_category: 'engagement',
+    event_label: 'Contact Form'
+  });
+
+  ['form-name','form-email','form-msg'].forEach(id =>
+    document.getElementById(id).value=''
+  );
 }
 
 function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
