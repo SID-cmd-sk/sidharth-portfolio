@@ -626,3 +626,18 @@ function initScrollAnimations() {
 }
 
 loadData();
+
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("contact-form");
+
+  if (form) {
+    form.addEventListener("submit", () => {
+
+      gtag('event', 'contact_form_submit', {
+        event_category: 'engagement',
+        event_label: 'Contact Form'
+      });
+
+    });
+  }
+});
