@@ -1,6 +1,3 @@
-/* ============================================================
-   PORTFOLIO SCRIPT v2 — Magnetic Cursor + 3D Viewer
-   ============================================================ */
 
 gsap.registerPlugin(ScrollTrigger);
 let DATA = {};
@@ -582,40 +579,50 @@ function renderCertifications() {
         <div class="cert-name">${c.name}</div><div class="cert-issuer">${c.issuer}</div>
       </div></div>`).join('');
 }
-
 /* ─── CONTACT ────────────────────────────────────────────── */
 function renderContact() {
-  const m=DATA.meta;
-  document.getElementById('contact-items').innerHTML=[
-    {icon:'📧',label:'Email',v:m.email},{icon:'📱',label:'Phone',v:m.phone},{icon:'📍',label:'Location',v:m.location}
-  ].map(i=>`<div class="contact-item"><div class="contact-item-icon">${i.icon}</div>
-    <div><div class="contact-item-label">${i.label}</div><div class="contact-item-value">${i.v}</div></div></div>`).join('');
+  const m = DATA.meta;
+
+  document.getElementById('contact-items').innerHTML = [
+    { icon: '📧', label: 'Email', v: m.email },
+    { icon: '📱', label: 'Phone', v: m.phone },
+    { icon: '📍', label: 'Location', v: m.location }
+  ].map(i => `
+    <div class="contact-item">
+      <div class="contact-item-icon">${i.icon}</div>
+      <div>
+        <div class="contact-item-label">${i.label}</div>
+        <div class="contact-item-value">${i.v}</div>
+      </div>
+    </div>
+  `).join('');
 }
 
-function submitForm() {
-  const n=document.getElementById('form-name').value,
-        e=document.getElementById('form-email').value,
-        m=document.getElementById('form-msg').value;
+/* ─── CONTACT FORM ANALYTICS ─────────────────────────────── */
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.getElementById("contact-form");
 
-  if(!n||!e||!m){
-    showToast('Please fill all fields.');
-    return;
+  if (form) {
+    form.addEventListener("submit", () => {
+
+      // 🔥 Track form submission
+      gtag('event', 'contact_form_submit', {
+        event_category: 'engagement',
+        event_label: 'Contact Form'
+      });
+
+    });
   }
+});
 
-  showToast("Message sent! I'll get back to you soon.");
-
-  gtag('event', 'contact_form_submit', {
-    event_category: 'engagement',
-    event_label: 'Contact Form'
-  });
-
-  ['form-name','form-email','form-msg'].forEach(id =>
-    document.getElementById(id).value=''
-  );
+/* ─── OPTIONAL TOAST (you can keep this) ─────────────────── */
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3500);
 }
-
-function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
-
 /* ─── SCROLL ANIMATIONS ──────────────────────────────────── */
 function initScrollAnimations() {
   gsap.utils.toArray('.reveal').forEach(el=>gsap.fromTo(el,{opacity:0,y:40},{opacity:1,y:0,duration:.7,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 88%',toggleActions:'play none none none'}}));
