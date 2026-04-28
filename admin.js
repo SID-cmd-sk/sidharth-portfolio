@@ -118,7 +118,7 @@ function resetPassword() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MAGNETIC CURSOR (admin panel)
+   ADMIN CURSOR — free dot + lagging ring, no magnetic pull
    ═══════════════════════════════════════════════════════════ */
 (function initAdminCursor() {
   const dot  = document.getElementById('adm-cursor-dot');
@@ -126,46 +126,41 @@ function resetPassword() {
   if (!dot || !ring) return;
 
   let mX = innerWidth/2, mY = innerHeight/2;
-  let rX = mX, rY = mY, dotX = mX, dotY = mY;
-  let magnetStr = 0, isHov = false;
+  let rX = mX, rY = mY;
 
   document.addEventListener('mousemove', e => { mX = e.clientX; mY = e.clientY; });
 
-  const MAG = 'a, button, input, select, textarea, .nav-item, .stat-card, .card';
-
   function frame() {
-    dotX += (mX - dotX) * 0.6;
-    dotY += (mY - dotY) * 0.6;
-    dot.style.left = dotX + 'px'; dot.style.top = dotY + 'px';
-
-    let best = null, bestD = Infinity;
-    document.querySelectorAll(MAG).forEach(el => {
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2, cy = r.top + r.height/2;
-      const d = Math.hypot(mX-cx, mY-cy);
-      if (d < Math.max(r.width, r.height)*0.65 && d < bestD) { best={cx,cy}; bestD=d; }
-    });
-
-    if (best) {
-      rX += (mX+(best.cx-mX)*.7 - rX) * 0.2;
-      rY += (mY+(best.cy-mY)*.7 - rY) * 0.2;
-      magnetStr = Math.min(magnetStr+.1, 1);
-      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(${1+magnetStr*.8});border-color:rgba(0,200,255,.9);background:rgba(0,200,255,.05);`;
-      if (!isHov) { isHov=true; dot.style.opacity='.4'; dot.style.transform='translate(-50%,-50%) scale(.5)'; }
-    } else {
-      rX += (mX-rX)*.12; rY += (mY-rY)*.12;
-      magnetStr = Math.max(magnetStr-.12, 0);
-      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(1);border-color:rgba(0,200,255,.4);background:transparent;`;
-      if (isHov) { isHov=false; dot.style.opacity='1'; dot.style.transform='translate(-50%,-50%) scale(1)'; }
-    }
+    dot.style.left = mX + 'px';
+    dot.style.top  = mY + 'px';
+    rX += (mX - rX) * 0.13;
+    rY += (mY - rY) * 0.13;
+    ring.style.left = rX + 'px';
+    ring.style.top  = rY + 'px';
     requestAnimationFrame(frame);
   }
   frame();
 
+  // Visual ring feedback on interactive elements — cursor stays free
+  const HOVER = 'a, button, input, select, textarea, .nav-item, .stat-card';
+  document.addEventListener('mouseover', e => {
+    if (e.target.closest(HOVER)) {
+      ring.style.width = '50px'; ring.style.height = '50px';
+      ring.style.borderColor = 'rgba(0,200,255,0.9)';
+      dot.style.opacity = '0.35';
+    }
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest(HOVER)) {
+      ring.style.width = '36px'; ring.style.height = '36px';
+      ring.style.borderColor = 'rgba(0,200,255,0.45)';
+      dot.style.opacity = '1';
+    }
+  });
+
   document.addEventListener('mousedown', () => {
-    ring.style.transform = 'translate(-50%,-50%) scale(.65)';
-    dot.style.transform  = 'translate(-50%,-50%) scale(2)';
-    setTimeout(() => { ring.style.transform='translate(-50%,-50%) scale(1)'; dot.style.transform='translate(-50%,-50%) scale(1)'; }, 300);
+    ring.style.transform = 'translate(-50%,-50%) scale(0.65)';
+    setTimeout(() => ring.style.transform = 'translate(-50%,-50%) scale(1)', 300);
   });
   document.addEventListener('mouseleave', () => { dot.style.opacity='0'; ring.style.opacity='0'; });
   document.addEventListener('mouseenter', () => { dot.style.opacity='1'; ring.style.opacity='1'; });

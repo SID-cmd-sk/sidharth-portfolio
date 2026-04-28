@@ -43,8 +43,11 @@ function initLoader() {
 }
 
 /* ═══════════════════════════════════════════════════════════
-   MAGNETIC CURSOR — smooth interpolation + pull-to-element
+   CURSOR — free-moving dot + ring, no magnetic pull to elements
    ═══════════════════════════════════════════════════════════ */
+// Shared cursor position — used by both cursor and particle system
+const cursor = { x: innerWidth / 2, y: innerHeight / 2 };
+
 function initMagneticCursor() {
   const dot  = document.getElementById('cursor-dot');
   const ring = document.getElementById('cursor-ring');
@@ -52,104 +55,178 @@ function initMagneticCursor() {
 
   document.documentElement.style.cursor = 'none';
 
-  let mX = innerWidth/2, mY = innerHeight/2;
-  let rX = mX, rY = mY, dotX = mX, dotY = mY;
-  let isHovering = false, magnetStrength = 0;
+  let ringX = cursor.x, ringY = cursor.y;
 
-  document.addEventListener('mousemove', e => { mX = e.clientX; mY = e.clientY; });
-
-  const MAGNETIC = 'a, button, .project-card, .cert-card, .filter-btn, .nav-cta, .btn-primary, .btn-ghost, .skill-tag';
-
-  function getMagnetTarget() {
-    let best = null, bestDist = Infinity;
-    document.querySelectorAll(MAGNETIC).forEach(el => {
-      const r = el.getBoundingClientRect();
-      const cx = r.left + r.width/2, cy = r.top + r.height/2;
-      const dist = Math.hypot(mX-cx, mY-cy);
-      const threshold = Math.max(r.width, r.height) * 0.65;
-      if (dist < threshold && dist < bestDist) { best = {el,cx,cy,dist}; bestDist = dist; }
-    });
-    return best;
-  }
+  // Track real mouse position
+  document.addEventListener('mousemove', e => {
+    cursor.x = e.clientX;
+    cursor.y = e.clientY;
+  });
 
   function animate() {
-    // Dot: snappy follow
-    dotX += (mX - dotX) * 0.6;
-    dotY += (mY - dotY) * 0.6;
-    dot.style.left = dotX + 'px';
-    dot.style.top  = dotY + 'px';
+    // Dot snaps directly to cursor
+    dot.style.left = cursor.x + 'px';
+    dot.style.top  = cursor.y + 'px';
 
-    const mag = getMagnetTarget();
-    if (mag) {
-      // Pull ring toward element center
-      const pull = 0.28;
-      const tRX = mX + (mag.cx - mX) * pull * 2.8;
-      const tRY = mY + (mag.cy - mY) * pull * 2.8;
-      rX += (tRX - rX) * 0.2;
-      rY += (tRY - rY) * 0.2;
-      magnetStrength = Math.min(magnetStrength + 0.1, 1);
-      const s = 1 + magnetStrength * 0.9;
-      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(${s});border-color:rgba(0,200,255,1);background:rgba(0,200,255,0.07);width:42px;height:42px;`;
-      if (!isHovering) { isHovering = true; dot.style.opacity = '0.4'; dot.style.transform = 'translate(-50%,-50%) scale(0.5)'; }
-    } else {
-      rX += (mX - rX) * 0.11;
-      rY += (mY - rY) * 0.11;
-      magnetStrength = Math.max(magnetStrength - 0.12, 0);
-      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(1);border-color:rgba(0,200,255,0.45);background:transparent;width:36px;height:36px;`;
-      if (isHovering) { isHovering = false; dot.style.opacity = '1'; dot.style.transform = 'translate(-50%,-50%) scale(1)'; }
-    }
+    // Ring lags behind with smooth easing — free trailing ring
+    ringX += (cursor.x - ringX) * 0.13;
+    ringY += (cursor.y - ringY) * 0.13;
+    ring.style.left = ringX + 'px';
+    ring.style.top  = ringY + 'px';
+
     requestAnimationFrame(animate);
   }
   animate();
 
+  // Click pulse on ring
   document.addEventListener('mousedown', () => {
-    gsap.to(ring, { scale:0.65, duration:0.12, ease:'power2.out', overwrite:true });
-    gsap.to(dot,  { scale:2,    duration:0.12, ease:'power2.out', overwrite:true });
-    // Ripple burst
-    spawnRipple(mX, mY);
+    gsap.to(ring, { scale: 0.6,  duration: 0.12, ease: 'power2.out',      overwrite: true });
+    gsap.to(dot,  { scale: 2.2,  duration: 0.12, ease: 'power2.out',      overwrite: true });
   });
   document.addEventListener('mouseup', () => {
-    gsap.to(ring, { scale:1, duration:0.5, ease:'elastic.out(1,0.45)', overwrite:true });
-    gsap.to(dot,  { scale:1, duration:0.3, ease:'power2.out', overwrite:true });
+    gsap.to(ring, { scale: 1, duration: 0.5, ease: 'elastic.out(1,0.4)', overwrite: true });
+    gsap.to(dot,  { scale: 1, duration: 0.3, ease: 'power2.out',          overwrite: true });
   });
-  document.addEventListener('mouseleave', () => { dot.style.opacity='0'; ring.style.opacity='0'; });
-  document.addEventListener('mouseenter', () => { dot.style.opacity='1'; ring.style.opacity='1'; });
+
+  // Grow ring on interactive elements — purely visual, cursor still free
+  const HOVER_ELS = 'a, button, .project-card, .filter-btn, .cert-card';
+  document.addEventListener('mouseover', e => {
+    if (e.target.closest(HOVER_ELS)) {
+      gsap.to(ring, { width: 54, height: 54, borderColor: 'rgba(0,200,255,0.9)', duration: 0.25, overwrite: true });
+      gsap.to(dot,  { opacity: 0.35, scale: 0.5, duration: 0.2, overwrite: true });
+    }
+  });
+  document.addEventListener('mouseout', e => {
+    if (e.target.closest(HOVER_ELS)) {
+      gsap.to(ring, { width: 36, height: 36, borderColor: 'rgba(0,200,255,0.45)', duration: 0.3, overwrite: true });
+      gsap.to(dot,  { opacity: 1, scale: 1, duration: 0.25, overwrite: true });
+    }
+  });
+
+  document.addEventListener('mouseleave', () => { dot.style.opacity = '0'; ring.style.opacity = '0'; });
+  document.addEventListener('mouseenter', () => { dot.style.opacity = '1'; ring.style.opacity = '1'; });
 }
 
-function spawnRipple(x, y) {
-  const r = document.createElement('div');
-  r.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:4px;height:4px;
-    border:1px solid rgba(0,200,255,0.6);border-radius:50%;pointer-events:none;
-    z-index:9990;transform:translate(-50%,-50%);`;
-  document.body.appendChild(r);
-  gsap.to(r, { width:60, height:60, opacity:0, duration:0.6, ease:'power2.out',
-    onComplete: () => r.remove() });
-}
-
-/* ─── PARTICLES ──────────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════
+   PARTICLES — cursor-reactive constellation
+   · Particles drift freely as before
+   · When a particle comes within CONNECT_DIST of the cursor,
+     a line is drawn from that particle TO the cursor
+   · Line brightness/thickness scales with proximity
+   · Particles within REPEL_DIST get gently pushed away
+     (soft repulsion, not snapping — stays subtle)
+   ═══════════════════════════════════════════════════════════ */
 function initParticles() {
   const canvas = document.getElementById('bg-particles');
-  const ctx = canvas.getContext('2d');
-  let W = canvas.width = innerWidth, H = canvas.height = innerHeight;
-  const pts = Array.from({length:60}, () => ({
-    x:Math.random()*W, y:Math.random()*H,
-    r:Math.random()*1.2+0.3, vx:(Math.random()-.5)*.22, vy:(Math.random()-.5)*.22, a:Math.random()*.35+.08
+  const ctx    = canvas.getContext('2d');
+  let W = canvas.width  = innerWidth;
+  let H = canvas.height = innerHeight;
+
+  const CONNECT_DIST = 160;  // px — line draws to cursor within this range
+  const REPEL_DIST   = 80;   // px — soft push away within this range
+  const REPEL_FORCE  = 0.6;  // strength of repulsion (low = subtle)
+
+  const pts = Array.from({ length: 70 }, () => ({
+    x:  Math.random() * W,
+    y:  Math.random() * H,
+    ox: 0, oy: 0,            // velocity
+    r:  Math.random() * 1.3 + 0.3,
+    vx: (Math.random() - 0.5) * 0.22,
+    vy: (Math.random() - 0.5) * 0.22,
+    a:  Math.random() * 0.35 + 0.08,
   }));
+
   (function draw() {
-    ctx.clearRect(0,0,W,H);
+    ctx.clearRect(0, 0, W, H);
+
+    const mx = cursor.x, my = cursor.y;
+
     pts.forEach(p => {
-      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
-      ctx.fillStyle = `rgba(0,200,255,${p.a})`; ctx.fill();
-      p.x=(p.x+p.vx+W)%W; p.y=(p.y+p.vy+H)%H;
+      // ── Soft repulsion from cursor ──────────────────────
+      const cdx  = p.x - mx, cdy = p.y - my;
+      const cdist = Math.hypot(cdx, cdy);
+      if (cdist < REPEL_DIST && cdist > 0) {
+        const force = (1 - cdist / REPEL_DIST) * REPEL_FORCE;
+        p.vx += (cdx / cdist) * force * 0.08;
+        p.vy += (cdy / cdist) * force * 0.08;
+      }
+
+      // Dampen velocity so it doesn't explode
+      p.vx *= 0.99;
+      p.vy *= 0.99;
+
+      // Move
+      p.x = (p.x + p.vx + W) % W;
+      p.y = (p.y + p.vy + H) % H;
+
+      // Draw particle dot
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(0,200,255,${p.a})`;
+      ctx.fill();
     });
-    for (let i=0;i<pts.length;i++) for (let j=i+1;j<pts.length;j++) {
-      const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.hypot(dx,dy);
-      if (d<110) { ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
-        ctx.strokeStyle=`rgba(0,200,255,${.07*(1-d/110)})`; ctx.lineWidth=.6; ctx.stroke(); }
+
+    // ── Particle ↔ particle connections ─────────────────
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y;
+        const d  = Math.hypot(dx, dy);
+        if (d < 110) {
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x, pts[i].y);
+          ctx.lineTo(pts[j].x, pts[j].y);
+          ctx.strokeStyle = `rgba(0,200,255,${0.07 * (1 - d / 110)})`;
+          ctx.lineWidth   = 0.6;
+          ctx.stroke();
+        }
+      }
     }
+
+    // ── Particle → CURSOR connections ───────────────────
+    pts.forEach(p => {
+      const dx   = p.x - mx, dy = p.y - my;
+      const dist = Math.hypot(dx, dy);
+      if (dist < CONNECT_DIST) {
+        const alpha     = (1 - dist / CONNECT_DIST);
+        const lineAlpha = alpha * 0.55;   // max ~0.55 at closest point
+        const lineWidth = alpha * 1.4;
+
+        // Gradient line: bright at cursor end, fades at particle end
+        const grad = ctx.createLinearGradient(p.x, p.y, mx, my);
+        grad.addColorStop(0, `rgba(0,200,255,${lineAlpha * 0.3})`);
+        grad.addColorStop(1, `rgba(0,200,255,${lineAlpha})`);
+
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(mx, my);
+        ctx.strokeStyle = grad;
+        ctx.lineWidth   = lineWidth;
+        ctx.stroke();
+
+        // Particle glows brighter when close to cursor
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r + alpha * 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0,200,255,${p.a + alpha * 0.4})`;
+        ctx.fill();
+      }
+    });
+
+    // ── Cursor glow dot on canvas (soft halo under the cursor) ──
+    const glowGrad = ctx.createRadialGradient(mx, my, 0, mx, my, CONNECT_DIST * 0.4);
+    glowGrad.addColorStop(0,   'rgba(0,200,255,0.06)');
+    glowGrad.addColorStop(1,   'rgba(0,200,255,0)');
+    ctx.beginPath();
+    ctx.arc(mx, my, CONNECT_DIST * 0.4, 0, Math.PI * 2);
+    ctx.fillStyle = glowGrad;
+    ctx.fill();
+
     requestAnimationFrame(draw);
   })();
-  window.addEventListener('resize', () => { W=canvas.width=innerWidth; H=canvas.height=innerHeight; });
+
+  window.addEventListener('resize', () => {
+    W = canvas.width  = innerWidth;
+    H = canvas.height = innerHeight;
+  });
 }
 
 /* ─── NAVBAR ─────────────────────────────────────────────── */
