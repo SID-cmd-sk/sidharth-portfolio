@@ -62,7 +62,7 @@
     a { color: var(--neon); text-decoration: none; }
     img { max-width: 100%; display: block; }
 
-    /* ===== CUSTOM CURSOR ===== */
+    /* ===== MAGNETIC CURSOR ===== */
     #cursor-dot {
       position: fixed;
       width: 8px; height: 8px;
@@ -71,21 +71,30 @@
       pointer-events: none;
       z-index: 9999;
       transform: translate(-50%, -50%);
-      transition: width 0.2s, height 0.2s, background 0.2s;
-      box-shadow: 0 0 12px var(--neon), 0 0 30px rgba(0,200,255,0.6);
+      box-shadow: 0 0 14px var(--neon), 0 0 30px rgba(0,200,255,0.5);
+      transition: opacity 0.2s, transform 0.15s;
+      will-change: left, top;
     }
     #cursor-ring {
       position: fixed;
       width: 36px; height: 36px;
-      border: 1.5px solid rgba(0,200,255,0.5);
+      border: 1.5px solid rgba(0,200,255,0.45);
       border-radius: 50%;
       pointer-events: none;
       z-index: 9998;
       transform: translate(-50%, -50%);
-      transition: transform 0.12s var(--transition), width 0.3s, height 0.3s, border-color 0.3s;
+      transition: opacity 0.2s, width 0.25s, height 0.25s, background 0.2s, border-color 0.2s;
+      will-change: left, top, transform;
     }
-    body:has(a:hover) #cursor-dot { width: 14px; height: 14px; background: var(--neon2); }
-    body:has(a:hover) #cursor-ring { width: 50px; height: 50px; border-color: var(--neon2); }
+    /* Loader spinner for 3D viewer */
+    .loader-spin {
+      width: 32px; height: 32px;
+      border: 2px solid rgba(0,200,255,0.15);
+      border-top-color: var(--neon);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
 
     /* ===== ANIMATED GRID BACKGROUND ===== */
     #bg-grid {
@@ -867,6 +876,60 @@
       95% { transform: none; opacity: 0; }
     }
 
+    /* ===== MEDIA GALLERY ===== */
+    #modal-media { margin-top: 1.5rem; }
+    .media-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+    .media-tab {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      letter-spacing: 1px;
+      padding: 0.45rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      background: rgba(255,255,255,0.02);
+      color: var(--text-dim);
+      cursor: pointer;
+      transition: all 0.25s;
+    }
+    .media-tab:hover { border-color: var(--neon); color: var(--neon); }
+    .media-tab.active { border-color: var(--neon); color: var(--neon); background: rgba(0,200,255,0.08); box-shadow: var(--glow); }
+    .media-panels {}
+    .media-panel { display: none; }
+    .media-panel.active { display: block; }
+
+    /* Photo gallery */
+    .photo-gallery {}
+    .photo-main { margin-bottom: 0.8rem; border-radius: 8px; overflow: hidden; background: #070b14; border: 1px solid var(--border); }
+    .photo-caption { font-size: 0.75rem; color: var(--text-dim); text-align: center; padding: 0.4rem; }
+    .photo-thumbs { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .photo-thumb {
+      width: 70px; cursor: pointer;
+      border: 2px solid transparent;
+      border-radius: 6px; overflow: hidden;
+      transition: border-color 0.2s, transform 0.2s;
+    }
+    .photo-thumb:hover { transform: scale(1.05); }
+    .photo-thumb.active { border-color: var(--neon); box-shadow: 0 0 10px rgba(0,200,255,0.4); }
+
+    /* Project card media badges */
+    .project-media-badges {
+      position: absolute;
+      bottom: 0.7rem; right: 0.7rem;
+      display: flex; gap: 0.35rem;
+      z-index: 2;
+    }
+    .media-badge {
+      font-size: 0.6rem;
+      padding: 0.18rem 0.5rem;
+      border-radius: 4px;
+      font-family: var(--font-mono);
+      letter-spacing: 1px;
+      font-weight: 600;
+    }
+    .badge-3d    { background: rgba(123,47,255,0.25); border: 1px solid rgba(123,47,255,0.5); color: #a870ff; }
+    .badge-photo { background: rgba(0,200,255,0.15);  border: 1px solid rgba(0,200,255,0.35);  color: var(--neon); }
+    .badge-video { background: rgba(0,255,157,0.12);  border: 1px solid rgba(0,255,157,0.3);   color: var(--neon3); }
+
     /* ===== TOAST ===== */
     #toast {
       position: fixed;
@@ -1052,6 +1115,8 @@
         <p id="modal-desc" style="color:var(--text-dim);line-height:1.9;margin-bottom:1.5rem;"></p>
         <div style="font-family:var(--font-mono);font-size:0.7rem;letter-spacing:2px;color:var(--neon);margin-bottom:0.8rem;text-transform:uppercase;">Highlights</div>
         <ul id="modal-highlights" style="list-style:none;display:flex;flex-direction:column;gap:0.5rem;"></ul>
+        <!-- MEDIA: photos, videos, 3D model -->
+        <div id="modal-media"></div>
       </div>
     </div>
   </div>

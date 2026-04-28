@@ -1,22 +1,195 @@
 /* ============================================================
-   ADMIN PANEL JS — Sidharth Portfolio
+   ADMIN JS v2 — Password Lock + Magnetic Cursor + Media
    ============================================================ */
 
+/* ═══════════════════════════════════════════════════════════
+   PASSWORD LOCK SYSTEM
+   ═══════════════════════════════════════════════════════════ */
+const LOCK_KEY    = 'pf_admin_pwd';
+const SESSION_KEY = 'pf_admin_session';
+const DEFAULT_PWD = 'admin123';
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_MINS = 5;
+
+let attempts = 0;
+let isLocked = false;
+
+function getPassword()   { return localStorage.getItem(LOCK_KEY) || DEFAULT_PWD; }
+function isSessionValid(){ return sessionStorage.getItem(SESSION_KEY) === 'ok'; }
+function startSession()  { sessionStorage.setItem(SESSION_KEY, 'ok'); }
+function endSession()    { sessionStorage.removeItem(SESSION_KEY); }
+
+function checkLockout() {
+  const lockoutUntil = parseInt(localStorage.getItem('pf_lockout') || '0');
+  if (Date.now() < lockoutUntil) {
+    const mins = Math.ceil((lockoutUntil - Date.now()) / 60000);
+    setLockError(`Too many attempts. Locked for ${mins} min.`);
+    document.getElementById('lock-btn') && (document.querySelector('.lock-btn').disabled = true);
+    return true;
+  }
+  return false;
+}
+
+function tryUnlock() {
+  if (checkLockout()) return;
+  const input = document.getElementById('lock-pwd').value;
+  if (input === getPassword()) {
+    // Success
+    attempts = 0;
+    localStorage.removeItem('pf_lockout');
+    startSession();
+    unlockAdmin();
+  } else {
+    attempts++;
+    renderAttemptDots();
+    document.getElementById('lock-pwd').classList.add('error');
+    setTimeout(() => document.getElementById('lock-pwd').classList.remove('error'), 500);
+    document.getElementById('lock-pwd').value = '';
+
+    if (attempts >= MAX_ATTEMPTS) {
+      const until = Date.now() + LOCKOUT_MINS * 60000;
+      localStorage.setItem('pf_lockout', until);
+      setLockError(`Too many attempts. Locked for ${LOCKOUT_MINS} min.`);
+      document.querySelector('.lock-btn').disabled = true;
+    } else {
+      setLockError(`Incorrect password. ${MAX_ATTEMPTS - attempts} attempt${MAX_ATTEMPTS - attempts !== 1 ? 's' : ''} remaining.`);
+    }
+  }
+}
+
+function setLockError(msg) {
+  document.getElementById('lock-error').textContent = msg;
+}
+
+function renderAttemptDots() {
+  const container = document.getElementById('lock-attempts');
+  container.innerHTML = Array.from({ length: MAX_ATTEMPTS }, (_, i) =>
+    `<div class="lock-attempt-dot${i < attempts ? ' used' : ''}"></div>`
+  ).join('');
+}
+
+function togglePwd() {
+  const inp = document.getElementById('lock-pwd');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  document.getElementById('eye-btn').textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+function unlockAdmin() {
+  const lock = document.getElementById('lock-screen');
+  const ui   = document.getElementById('admin-ui');
+  lock.classList.add('hidden');
+  setTimeout(() => {
+    ui.style.display = 'flex';
+    loadData();
+  }, 600);
+}
+
+function lockAdmin() {
+  endSession();
+  const ui   = document.getElementById('admin-ui');
+  const lock = document.getElementById('lock-screen');
+  ui.style.display = 'none';
+  lock.classList.remove('hidden');
+  document.getElementById('lock-pwd').value = '';
+  setLockError('');
+  renderAttemptDots();
+  attempts = 0;
+}
+
+function changePassword() {
+  const cur     = document.getElementById('pwd-current').value;
+  const newPwd  = document.getElementById('pwd-new').value;
+  const confirm = document.getElementById('pwd-confirm').value;
+
+  if (cur !== getPassword()) { showToast('Current password is incorrect.'); return; }
+  if (newPwd.length < 6)     { showToast('New password must be at least 6 characters.'); return; }
+  if (newPwd !== confirm)    { showToast('Passwords do not match.'); return; }
+
+  localStorage.setItem(LOCK_KEY, newPwd);
+  ['pwd-current','pwd-new','pwd-confirm'].forEach(id => document.getElementById(id).value = '');
+  showToast('✅ Password changed! Remember your new password.');
+}
+
+function resetPassword() {
+  showConfirm('Reset password to default (admin123)?', () => {
+    localStorage.removeItem(LOCK_KEY);
+    showToast('Password reset to: admin123');
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MAGNETIC CURSOR (admin panel)
+   ═══════════════════════════════════════════════════════════ */
+(function initAdminCursor() {
+  const dot  = document.getElementById('adm-cursor-dot');
+  const ring = document.getElementById('adm-cursor-ring');
+  if (!dot || !ring) return;
+
+  let mX = innerWidth/2, mY = innerHeight/2;
+  let rX = mX, rY = mY, dotX = mX, dotY = mY;
+  let magnetStr = 0, isHov = false;
+
+  document.addEventListener('mousemove', e => { mX = e.clientX; mY = e.clientY; });
+
+  const MAG = 'a, button, input, select, textarea, .nav-item, .stat-card, .card';
+
+  function frame() {
+    dotX += (mX - dotX) * 0.6;
+    dotY += (mY - dotY) * 0.6;
+    dot.style.left = dotX + 'px'; dot.style.top = dotY + 'px';
+
+    let best = null, bestD = Infinity;
+    document.querySelectorAll(MAG).forEach(el => {
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      const d = Math.hypot(mX-cx, mY-cy);
+      if (d < Math.max(r.width, r.height)*0.65 && d < bestD) { best={cx,cy}; bestD=d; }
+    });
+
+    if (best) {
+      rX += (mX+(best.cx-mX)*.7 - rX) * 0.2;
+      rY += (mY+(best.cy-mY)*.7 - rY) * 0.2;
+      magnetStr = Math.min(magnetStr+.1, 1);
+      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(${1+magnetStr*.8});border-color:rgba(0,200,255,.9);background:rgba(0,200,255,.05);`;
+      if (!isHov) { isHov=true; dot.style.opacity='.4'; dot.style.transform='translate(-50%,-50%) scale(.5)'; }
+    } else {
+      rX += (mX-rX)*.12; rY += (mY-rY)*.12;
+      magnetStr = Math.max(magnetStr-.12, 0);
+      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(1);border-color:rgba(0,200,255,.4);background:transparent;`;
+      if (isHov) { isHov=false; dot.style.opacity='1'; dot.style.transform='translate(-50%,-50%) scale(1)'; }
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+
+  document.addEventListener('mousedown', () => {
+    ring.style.transform = 'translate(-50%,-50%) scale(.65)';
+    dot.style.transform  = 'translate(-50%,-50%) scale(2)';
+    setTimeout(() => { ring.style.transform='translate(-50%,-50%) scale(1)'; dot.style.transform='translate(-50%,-50%) scale(1)'; }, 300);
+  });
+  document.addEventListener('mouseleave', () => { dot.style.opacity='0'; ring.style.opacity='0'; });
+  document.addEventListener('mouseenter', () => { dot.style.opacity='1'; ring.style.opacity='1'; });
+})();
+
+/* ═══════════════════════════════════════════════════════════
+   DATA
+   ═══════════════════════════════════════════════════════════ */
 let DATA = {};
 
 async function loadData() {
   try {
     const saved = localStorage.getItem('portfolio_data');
-    if (saved) {
-      DATA = JSON.parse(saved);
-    } else {
-      const res = await fetch('data/portfolio.json');
-      DATA = await res.json();
-    }
-  } catch (e) {
-    const res = await fetch('data/portfolio.json');
-    DATA = await res.json();
+    DATA = saved ? JSON.parse(saved) : await (await fetch('data/portfolio.json')).json();
+  } catch {
+    try { DATA = await (await fetch('data/portfolio.json')).json(); } catch { DATA = { meta:{}, projects:[], skills:[], experience:[], certifications:[], about:'' }; }
   }
+  // Ensure arrays exist
+  ['projects','skills','experience','certifications'].forEach(k => { if (!DATA[k]) DATA[k] = []; });
+  DATA.projects.forEach(p => {
+    if (!p.photos)   p.photos   = [];
+    if (!p.videos)   p.videos   = [];
+    if (!p.model3d)  p.model3d  = null;
+  });
   renderAll();
 }
 
@@ -28,326 +201,368 @@ function renderAll() {
   renderCertsList();
   renderMetaForm();
   refreshJSON();
-  renderAnalytics();
 }
 
-/* ===== PANEL NAVIGATION ===== */
+/* ─── PANEL NAV ──────────────────────────────────────────── */
 function showPanel(name) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-  document.getElementById('panel-' + name).classList.add('active');
-  event.currentTarget && event.currentTarget.classList.add('active');
-  // Manual fallback
+  document.getElementById('panel-' + name)?.classList.add('active');
   document.querySelectorAll('.nav-item').forEach(n => {
-    if (n.getAttribute('onclick') && n.getAttribute('onclick').includes(name)) n.classList.add('active');
+    if (n.getAttribute('onclick')?.includes(name)) n.classList.add('active');
   });
 }
 
-/* ===== DASHBOARD ===== */
+/* ─── DASHBOARD ──────────────────────────────────────────── */
 function renderDashboard() {
-  const statsRow = document.getElementById('stats-row');
   const stats = [
-    { num: DATA.projects?.length || 0, label: 'Projects' },
-    { num: DATA.certifications?.length || 0, label: 'Certifications' },
-    { num: DATA.skills?.length || 0, label: 'Skills' },
-    { num: DATA.experience?.length || 0, label: 'Experiences' },
+    { num: DATA.projects.length,       label: 'Projects' },
+    { num: DATA.certifications.length, label: 'Certifications' },
+    { num: DATA.skills.length,         label: 'Skills' },
+    { num: DATA.experience.length,     label: 'Experiences' },
+    { num: DATA.projects.filter(p=>p.model3d).length,  label: '3D Models' },
+    { num: DATA.projects.filter(p=>p.photos?.length>0).length, label: 'With Photos' },
   ];
-  statsRow.innerHTML = stats.map(s => `
-    <div class="stat-card">
-      <div class="stat-card-num">${s.num}</div>
-      <div class="stat-card-label">${s.label}</div>
-    </div>
-  `).join('');
+  document.getElementById('stats-row').innerHTML = stats.map(s => `
+    <div class="stat-card"><div class="stat-card-num">${s.num}</div><div class="stat-card-label">${s.label}</div></div>`).join('');
 
-  const recent = document.getElementById('recent-projects-list');
-  recent.innerHTML = (DATA.projects || []).slice(0, 3).map(p => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.8rem 0;border-bottom:1px solid rgba(255,255,255,0.05);">
-      <div>
-        <div style="color:var(--text);font-size:0.9rem;font-weight:500;">${p.title}</div>
-        <div style="font-size:0.75rem;color:var(--text-dim);">${p.category} · ${p.tools.join(', ')}</div>
-      </div>
-      ${p.featured ? '<span class="badge badge-featured">Featured</span>' : ''}
-    </div>
-  `).join('');
+  document.getElementById('dash-recent').innerHTML = DATA.projects.slice(0, 4).map(p => {
+    const mIcons = [p.model3d?'🔷':'', p.photos?.length?'📷':'', p.videos?.length?'▶':''].filter(Boolean).join(' ');
+    return `<div style="display:flex;justify-content:space-between;align-items:center;padding:.8rem 0;border-bottom:1px solid rgba(255,255,255,.05);">
+      <div><div style="color:var(--text);font-size:.9rem;font-weight:500;">${p.title}</div>
+        <div style="font-size:.72rem;color:var(--text-dim);">${p.category} · ${p.tools.join(', ')} ${mIcons?'·':''} ${mIcons}</div></div>
+      ${p.featured?'<span class="badge badge-featured">Featured</span>':''}
+    </div>`;
+  }).join('');
 }
 
-/* ===== PROJECTS ===== */
+/* ─── PROJECTS ───────────────────────────────────────────── */
 function renderProjectsTable() {
-  const tbody = document.getElementById('projects-table');
-  tbody.innerHTML = (DATA.projects || []).map((p, i) => `
-    <tr>
-      <td>${p.title}</td>
+  document.getElementById('projects-table').innerHTML = DATA.projects.map((p, i) => {
+    const mediaIcons = [p.model3d?'🔷':'', p.photos?.length?`📷${p.photos.length}`:'', p.videos?.length?`▶${p.videos.length}`:''].filter(Boolean).join(' ');
+    return `<tr>
+      <td style="color:var(--text);font-weight:500;">${p.title}</td>
       <td><span class="badge badge-cat">${p.category}</span></td>
-      <td style="font-size:0.75rem;">${p.tools.join(', ')}</td>
-      <td>${p.featured ? '<span class="badge badge-featured">Yes</span>' : '<span style="color:var(--text-dim);font-size:0.75rem;">No</span>'}</td>
-      <td>
-        <div style="display:flex;gap:0.4rem;">
-          <button class="btn btn-ghost btn-sm" onclick="editProject(${i})">Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteItem('projects', ${i})">Del</button>
-        </div>
-      </td>
-    </tr>
-  `).join('');
+      <td style="font-size:.72rem;letter-spacing:1px;">${mediaIcons||'—'}</td>
+      <td>${p.featured?'<span class="badge badge-featured">Yes</span>':'<span style="color:var(--text-dim);font-size:.72rem;">No</span>'}</td>
+      <td><div style="display:flex;gap:.35rem;">
+        <button class="btn btn-ghost btn-sm" onclick="editProject(${i})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteItem('projects',${i})">Del</button>
+      </div></td>
+    </tr>`;
+  }).join('');
 }
 
-function addProject() {
+/* Photo rows */
+let photoRows = [], videoRows = [];
+
+function addPhotoRow(url='', caption='') {
+  const id = Date.now() + Math.random();
+  photoRows.push(id);
+  const div = document.createElement('div');
+  div.className = 'media-row'; div.id = `photo-row-${id}`;
+  div.innerHTML = `
+    <span class="media-row-label">URL</span>
+    <input type="text" value="${url}" placeholder="https://... (image URL)" class="photo-url-${id}" style="flex:2;" />
+    <input type="text" value="${caption}" placeholder="Caption (optional)" class="photo-cap-${id}" style="flex:1;" />
+    <button class="btn btn-danger btn-sm" onclick="removeRow('photo-row-${id}')">✕</button>`;
+  document.getElementById('photos-container').appendChild(div);
+}
+
+function addVideoRow(type='youtube', id='', url='', caption='') {
+  const rid = Date.now() + Math.random();
+  videoRows.push(rid);
+  const div = document.createElement('div');
+  div.className = 'media-row'; div.id = `video-row-${rid}`;
+  div.innerHTML = `
+    <span class="media-row-label">Type</span>
+    <select class="vtype-${rid}" onchange="toggleVideoFields(${rid})">
+      <option value="youtube"${type==='youtube'?' selected':''}>YouTube</option>
+      <option value="direct"${type==='direct'?' selected':''}>Direct URL</option>
+    </select>
+    <input type="text" value="${type==='youtube'?id:url}" placeholder="${type==='youtube'?'YouTube video ID (e.g. dQw4w9WgXcQ)':'Direct video URL (.mp4)'}" class="vval-${rid}" style="flex:2;" />
+    <input type="text" value="${caption}" placeholder="Caption" class="vcap-${rid}" style="flex:1;" />
+    <button class="btn btn-danger btn-sm" onclick="removeRow('video-row-${rid}')">✕</button>`;
+  document.getElementById('videos-container').appendChild(div);
+}
+
+function toggleVideoFields(rid) {
+  const sel = document.querySelector(`.vtype-${rid}`);
+  const inp = document.querySelector(`.vval-${rid}`);
+  inp.placeholder = sel.value==='youtube' ? 'YouTube video ID (e.g. dQw4w9WgXcQ)' : 'Direct video URL (.mp4)';
+}
+
+function removeRow(id) { document.getElementById(id)?.remove(); }
+
+function collectPhotos() {
+  const rows = document.querySelectorAll('#photos-container .media-row');
+  const photos = [];
+  rows.forEach(row => {
+    const urlEl  = row.querySelector('[class*="photo-url-"]');
+    const capEl  = row.querySelector('[class*="photo-cap-"]');
+    const url    = urlEl?.value.trim();
+    if (url) photos.push({ url, caption: capEl?.value.trim() || '' });
+  });
+  return photos;
+}
+
+function collectVideos() {
+  const rows = document.querySelectorAll('#videos-container .media-row');
+  const videos = [];
+  rows.forEach(row => {
+    const typeEl = row.querySelector('[class*="vtype-"]');
+    const valEl  = row.querySelector('[class*="vval-"]');
+    const capEl  = row.querySelector('[class*="vcap-"]');
+    const type   = typeEl?.value || 'youtube';
+    const val    = valEl?.value.trim();
+    const cap    = capEl?.value.trim() || '';
+    if (val) {
+      if (type === 'youtube') videos.push({ type:'youtube', id: val, caption: cap });
+      else                    videos.push({ type:'direct',  url: val, caption: cap });
+    }
+  });
+  return videos;
+}
+
+function collect3DModel() {
+  const url = document.getElementById('model-url').value.trim();
+  const fmt = document.getElementById('model-format').value;
+  if (!url) return null;
+  return { url, format: fmt || guessFormat(url) };
+}
+function guessFormat(url) {
+  const ext = url.split('.').pop().toLowerCase().split('?')[0];
+  return ['stl','obj','gltf','glb'].includes(ext) ? ext : 'stl';
+}
+
+function saveProject() {
   const title = document.getElementById('proj-title').value.trim();
-  const desc = document.getElementById('proj-desc').value.trim();
+  const desc  = document.getElementById('proj-desc').value.trim();
   if (!title || !desc) { showToast('Title and description are required.'); return; }
 
+  const editId = document.getElementById('proj-edit-id').value;
   const project = {
-    id: 'p' + Date.now(),
+    id:         editId || 'p' + Date.now(),
     title,
-    category: document.getElementById('proj-cat').value,
-    tools: document.getElementById('proj-tools').value.split(',').map(t => t.trim()).filter(Boolean),
+    category:   document.getElementById('proj-cat').value,
+    tools:      document.getElementById('proj-tools').value.split(',').map(t=>t.trim()).filter(Boolean),
     description: desc,
-    highlights: document.getElementById('proj-highlights').value.split('\n').map(h => h.trim()).filter(Boolean),
-    image: '',
-    featured: document.getElementById('proj-featured').value === 'true',
+    highlights: document.getElementById('proj-highlights').value.split('\n').map(h=>h.trim()).filter(Boolean),
+    image:      '',
+    featured:   document.getElementById('proj-featured').value === 'true',
+    photos:     collectPhotos(),
+    videos:     collectVideos(),
+    model3d:    collect3DModel(),
   };
 
-  DATA.projects = DATA.projects || [];
-  DATA.projects.push(project);
+  if (editId) {
+    const idx = DATA.projects.findIndex(p => p.id === editId);
+    if (idx !== -1) DATA.projects[idx] = project;
+    else DATA.projects.push(project);
+  } else {
+    DATA.projects.push(project);
+  }
+
   saveToStorage();
   renderProjectsTable();
   renderDashboard();
   clearProjectForm();
-  showToast('Project added!');
+  showToast(editId ? '✅ Project updated!' : '✅ Project added!');
 }
 
 function clearProjectForm() {
-  ['proj-title','proj-desc','proj-tools','proj-highlights'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('proj-cat').value = 'CAD';
+  document.getElementById('proj-edit-id').value = '';
+  ['proj-title','proj-desc','proj-tools','proj-highlights','model-url'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('proj-cat').value     = 'CAD';
   document.getElementById('proj-featured').value = 'false';
+  document.getElementById('model-format').value  = '';
+  document.getElementById('photos-container').innerHTML = '';
+  document.getElementById('videos-container').innerHTML = '';
+  photoRows = []; videoRows = [];
 }
 
 function editProject(i) {
   const p = DATA.projects[i];
-  document.getElementById('proj-title').value = p.title;
-  document.getElementById('proj-desc').value = p.description;
-  document.getElementById('proj-tools').value = p.tools.join(', ');
-  document.getElementById('proj-highlights').value = p.highlights.join('\n');
-  document.getElementById('proj-cat').value = p.category;
-  document.getElementById('proj-featured').value = p.featured ? 'true' : 'false';
+  document.getElementById('proj-edit-id').value      = p.id;
+  document.getElementById('proj-title').value        = p.title;
+  document.getElementById('proj-desc').value         = p.description;
+  document.getElementById('proj-tools').value        = p.tools.join(', ');
+  document.getElementById('proj-highlights').value   = p.highlights.join('\n');
+  document.getElementById('proj-cat').value          = p.category;
+  document.getElementById('proj-featured').value     = p.featured ? 'true' : 'false';
+  document.getElementById('model-url').value         = p.model3d?.url  || '';
+  document.getElementById('model-format').value      = p.model3d?.format || '';
+
+  // Clear and repopulate media rows
+  document.getElementById('photos-container').innerHTML = '';
+  document.getElementById('videos-container').innerHTML = '';
+  photoRows = []; videoRows = [];
+  (p.photos  || []).forEach(ph => addPhotoRow(ph.url, ph.caption));
+  (p.videos  || []).forEach(v  => addVideoRow(v.type, v.id||'', v.url||'', v.caption));
+
   showPanel('projects');
-  DATA.projects.splice(i, 1);
-  renderProjectsTable();
-  showToast('Project loaded for editing. Modify and click Add.');
+  // Scroll to form
+  document.querySelector('#panel-projects .card')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  showToast('Project loaded for editing.');
 }
 
-/* ===== SKILLS ===== */
+/* ─── SKILLS ─────────────────────────────────────────────── */
 function renderSkillsList() {
-  const list = document.getElementById('skills-list');
-  list.innerHTML = (DATA.skills || []).map((s, i) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+  document.getElementById('skills-list').innerHTML = DATA.skills.map((s, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.7rem 0;border-bottom:1px solid rgba(255,255,255,.05);">
       <div>
-        <span style="color:var(--text);font-size:0.9rem;">${s.name}</span>
-        <span style="margin-left:0.8rem;font-family:var(--font-mono);font-size:0.7rem;color:var(--neon);">${s.level}%</span>
-        <span class="badge badge-cat" style="margin-left:0.5rem;">${s.category}</span>
+        <span style="color:var(--text);font-size:.9rem;">${s.name}</span>
+        <span style="margin-left:.8rem;font-family:var(--font-mono);font-size:.7rem;color:var(--neon);">${s.level}%</span>
+        <span class="badge badge-cat" style="margin-left:.5rem;">${s.category}</span>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteItem('skills', ${i})">Remove</button>
-    </div>
-  `).join('');
+      <button class="btn btn-danger btn-sm" onclick="deleteItem('skills',${i})">Remove</button>
+    </div>`).join('');
 }
 
 function addSkill() {
-  const name = document.getElementById('skill-name').value.trim();
+  const name  = document.getElementById('skill-name').value.trim();
   const level = parseInt(document.getElementById('skill-level').value);
   if (!name || isNaN(level)) { showToast('Name and level required.'); return; }
-
-  DATA.skills = DATA.skills || [];
   DATA.skills.push({ name, level: Math.min(100, Math.max(0, level)), category: document.getElementById('skill-cat').value });
-  saveToStorage();
-  renderSkillsList();
-  document.getElementById('skill-name').value = '';
-  document.getElementById('skill-level').value = '';
-  showToast('Skill added!');
+  saveToStorage(); renderSkillsList();
+  document.getElementById('skill-name').value = ''; document.getElementById('skill-level').value = '';
+  showToast('✅ Skill added!');
 }
 
-/* ===== EXPERIENCE ===== */
+/* ─── EXPERIENCE ─────────────────────────────────────────── */
 function renderExpList() {
-  const list = document.getElementById('exp-list');
-  list.innerHTML = (DATA.experience || []).map((e, i) => `
-    <div style="padding:1rem;border:1px solid var(--border);border-radius:8px;margin-bottom:0.8rem;">
+  document.getElementById('exp-list').innerHTML = DATA.experience.map((e, i) => `
+    <div style="padding:1rem;border:1px solid var(--border);border-radius:8px;margin-bottom:.8rem;">
       <div style="display:flex;justify-content:space-between;align-items:flex-start;">
         <div>
-          <div style="color:var(--text-bright);font-size:0.9rem;font-weight:600;">${e.role}</div>
-          <div style="color:var(--neon2);font-size:0.8rem;">${e.company}</div>
-          <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--text-dim);margin-top:0.2rem;">${e.period}</div>
+          <div style="color:var(--text-bright);font-size:.9rem;font-weight:600;">${e.role}</div>
+          <div style="color:var(--neon2);font-size:.8rem;">${e.company}</div>
+          <div style="font-family:var(--font-mono);font-size:.68rem;color:var(--text-dim);margin-top:.2rem;">${e.period}</div>
         </div>
-        <button class="btn btn-danger btn-sm" onclick="deleteItem('experience', ${i})">Remove</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteItem('experience',${i})">Remove</button>
       </div>
-    </div>
-  `).join('');
+    </div>`).join('');
 }
 
 function addExperience() {
   const company = document.getElementById('exp-company').value.trim();
-  const role = document.getElementById('exp-role').value.trim();
+  const role    = document.getElementById('exp-role').value.trim();
   if (!company || !role) { showToast('Company and role required.'); return; }
-
-  DATA.experience = DATA.experience || [];
   DATA.experience.unshift({
-    id: 'exp' + Date.now(),
-    company, role,
-    period: document.getElementById('exp-period').value,
-    type: document.getElementById('exp-type').value,
-    description: document.getElementById('exp-desc').value,
-    highlights: document.getElementById('exp-highlights').value.split('\n').map(h => h.trim()).filter(Boolean),
+    id: 'exp'+Date.now(), company, role,
+    period:     document.getElementById('exp-period').value,
+    type:       document.getElementById('exp-type').value,
+    description:document.getElementById('exp-desc').value,
+    highlights: document.getElementById('exp-highlights').value.split('\n').map(h=>h.trim()).filter(Boolean),
   });
-  saveToStorage();
-  renderExpList();
-  renderDashboard();
-  ['exp-company','exp-role','exp-period','exp-desc','exp-highlights'].forEach(id => document.getElementById(id).value = '');
-  showToast('Experience added!');
+  saveToStorage(); renderExpList(); renderDashboard();
+  ['exp-company','exp-role','exp-period','exp-desc','exp-highlights'].forEach(id => document.getElementById(id).value='');
+  showToast('✅ Experience added!');
 }
 
-/* ===== CERTIFICATIONS ===== */
+/* ─── CERTIFICATIONS ─────────────────────────────────────── */
 function renderCertsList() {
-  const list = document.getElementById('certs-list');
-  list.innerHTML = (DATA.certifications || []).map((c, i) => `
-    <div style="display:flex;justify-content:space-between;align-items:center;padding:0.7rem 0;border-bottom:1px solid rgba(255,255,255,0.05);">
+  document.getElementById('certs-list').innerHTML = DATA.certifications.map((c, i) => `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:.7rem 0;border-bottom:1px solid rgba(255,255,255,.05);">
       <div>
-        <div style="color:var(--text);font-size:0.85rem;">${c.name}</div>
-        <div style="color:var(--text-dim);font-size:0.75rem;">${c.issuer} · <span style="color:var(--neon);">${c.level}</span></div>
+        <div style="color:var(--text);font-size:.85rem;">${c.name}</div>
+        <div style="color:var(--text-dim);font-size:.72rem;">${c.issuer} · <span style="color:var(--neon);">${c.level}</span></div>
       </div>
-      <button class="btn btn-danger btn-sm" onclick="deleteItem('certifications', ${i})">Remove</button>
-    </div>
-  `).join('');
+      <button class="btn btn-danger btn-sm" onclick="deleteItem('certifications',${i})">Remove</button>
+    </div>`).join('');
 }
 
 function addCert() {
   const name = document.getElementById('cert-name').value.trim();
-  const issuer = document.getElementById('cert-issuer').value.trim();
-  if (!name) { showToast('Certification name required.'); return; }
-
-  DATA.certifications = DATA.certifications || [];
-  DATA.certifications.push({ id: 'c' + Date.now(), name, issuer, level: document.getElementById('cert-level').value });
-  saveToStorage();
-  renderCertsList();
-  renderDashboard();
-  document.getElementById('cert-name').value = '';
-  document.getElementById('cert-issuer').value = '';
-  showToast('Certification added!');
+  if (!name) { showToast('Name required.'); return; }
+  DATA.certifications.push({ id:'c'+Date.now(), name, issuer: document.getElementById('cert-issuer').value.trim(), level: document.getElementById('cert-level').value });
+  saveToStorage(); renderCertsList(); renderDashboard();
+  document.getElementById('cert-name').value = ''; document.getElementById('cert-issuer').value = '';
+  showToast('✅ Certification added!');
 }
 
-/* ===== META FORM ===== */
+/* ─── META ───────────────────────────────────────────────── */
 function renderMetaForm() {
   const m = DATA.meta || {};
-  const fields = {
-    'meta-name': m.name, 'meta-title': m.title, 'meta-subtitle': m.subtitle,
-    'meta-email': m.email, 'meta-phone': m.phone, 'meta-location': m.location,
-    'meta-about': DATA.about, 'meta-ga': DATA.analytics?.googleAnalyticsId,
-  };
-  Object.entries(fields).forEach(([id, val]) => {
-    const el = document.getElementById(id);
-    if (el && val) el.value = val;
-  });
-
-  const gaEl = document.getElementById('ga-id-display');
-  if (gaEl) gaEl.value = DATA.analytics?.googleAnalyticsId || 'Not set';
+  const map = { 'meta-name':m.name,'meta-title':m.title,'meta-email':m.email,'meta-phone':m.phone,'meta-location':m.location,'meta-about':DATA.about,'meta-ga':DATA.analytics?.googleAnalyticsId };
+  Object.entries(map).forEach(([id,val]) => { const el=document.getElementById(id); if(el&&val) el.value=val; });
 }
 
 function saveMeta() {
-  DATA.meta = DATA.meta || {};
-  DATA.meta.name = document.getElementById('meta-name').value;
-  DATA.meta.title = document.getElementById('meta-title').value;
-  DATA.meta.subtitle = document.getElementById('meta-subtitle').value;
-  DATA.meta.email = document.getElementById('meta-email').value;
-  DATA.meta.phone = document.getElementById('meta-phone').value;
+  DATA.meta = DATA.meta||{};
+  DATA.meta.name     = document.getElementById('meta-name').value;
+  DATA.meta.title    = document.getElementById('meta-title').value;
+  DATA.meta.email    = document.getElementById('meta-email').value;
+  DATA.meta.phone    = document.getElementById('meta-phone').value;
   DATA.meta.location = document.getElementById('meta-location').value;
-  DATA.about = document.getElementById('meta-about').value;
-  DATA.analytics = DATA.analytics || {};
+  DATA.about         = document.getElementById('meta-about').value;
+  DATA.analytics     = DATA.analytics || {};
   DATA.analytics.googleAnalyticsId = document.getElementById('meta-ga').value;
-  saveToStorage();
-  showToast('Profile saved!');
+  saveToStorage(); showToast('✅ Profile saved!');
 }
 
-/* ===== JSON EDITOR ===== */
+/* ─── JSON EDITOR ────────────────────────────────────────── */
 function refreshJSON() {
-  document.getElementById('json-editor').value = JSON.stringify(DATA, null, 2);
+  const el = document.getElementById('json-editor');
+  if (el) el.value = JSON.stringify(DATA, null, 2);
 }
-
 function applyJSON() {
   try {
-    const parsed = JSON.parse(document.getElementById('json-editor').value);
-    DATA = parsed;
-    saveToStorage();
-    renderAll();
-    showToast('JSON applied successfully!');
-  } catch (e) {
-    showToast('Invalid JSON: ' + e.message);
-  }
+    DATA = JSON.parse(document.getElementById('json-editor').value);
+    saveToStorage(); renderAll(); showToast('✅ JSON applied!');
+  } catch(e) { showToast('❌ Invalid JSON: ' + e.message); }
 }
 
-/* ===== ANALYTICS ===== */
-function renderAnalytics() {
-  const stats = document.getElementById('analytics-stats');
-  const visits = parseInt(localStorage.getItem('pf_visits') || '0') + 1;
-  localStorage.setItem('pf_visits', visits);
-  stats.innerHTML = [
-    { num: visits, label: 'Total Page Loads' },
-    { num: DATA.projects?.filter(p => p.featured)?.length || 0, label: 'Featured Projects' },
-    { num: DATA.certifications?.length || 0, label: 'Certifications Listed' },
-  ].map(s => `
-    <div class="stat-card">
-      <div class="stat-card-num">${s.num}</div>
-      <div class="stat-card-label">${s.label}</div>
-    </div>
-  `).join('');
-}
-
-/* ===== DELETE ITEM ===== */
-function deleteItem(collection, index) {
-  showConfirm(`Delete this ${collection.slice(0,-1)}? This cannot be undone.`, () => {
-    DATA[collection].splice(index, 1);
-    saveToStorage();
-    renderAll();
-    showToast('Item deleted.');
-  });
-}
-
-/* ===== SAVE / DOWNLOAD ===== */
+/* ─── STORAGE / DOWNLOAD ─────────────────────────────────── */
 function saveToStorage() {
   localStorage.setItem('portfolio_data', JSON.stringify(DATA));
   refreshJSON();
 }
-
 function downloadJSON() {
-  const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
+  const blob = new Blob([JSON.stringify(DATA, null, 2)], { type:'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
   a.download = 'portfolio.json';
   a.click();
-  showToast('JSON downloaded! Replace data/portfolio.json with this file.');
+  showToast('📥 JSON downloaded! Replace data/portfolio.json with this file.');
 }
-
 function resetData() {
-  showConfirm('Reset all data to defaults? All unsaved changes will be lost.', () => {
-    localStorage.removeItem('portfolio_data');
-    location.reload();
+  showConfirm('Reset all data to defaults from JSON file?', () => {
+    localStorage.removeItem('portfolio_data'); location.reload();
   });
 }
 
-/* ===== CONFIRM MODAL ===== */
-let confirmCallback = null;
+/* ─── DELETE ─────────────────────────────────────────────── */
+function deleteItem(collection, index) {
+  showConfirm(`Delete this ${collection.slice(0,-1)}? Cannot be undone.`, () => {
+    DATA[collection].splice(index, 1);
+    saveToStorage(); renderAll(); showToast('Item deleted.');
+  });
+}
+
+/* ─── CONFIRM MODAL ──────────────────────────────────────── */
 function showConfirm(msg, cb) {
   document.getElementById('confirm-desc').textContent = msg;
-  confirmCallback = cb;
   document.getElementById('confirm-modal').classList.add('open');
   document.getElementById('confirm-yes').onclick = () => { cb(); closeConfirm(); };
 }
-function closeConfirm() {
-  document.getElementById('confirm-modal').classList.remove('open');
-}
+function closeConfirm() { document.getElementById('confirm-modal').classList.remove('open'); }
 
-/* ===== TOAST ===== */
+/* ─── TOAST ──────────────────────────────────────────────── */
 function showToast(msg) {
   const t = document.getElementById('admin-toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 3500);
 }
 
-/* ===== INIT ===== */
-loadData();
+/* ─── BOOT ───────────────────────────────────────────────── */
+// Check for lockout on load
+checkLockout();
+// Render attempt dots
+renderAttemptDots();
+// If session is valid, skip lock screen
+if (isSessionValid()) {
+  unlockAdmin();
+}
+// Allow Enter key on lock screen
+document.getElementById('lock-pwd')?.addEventListener('keydown', e => { if(e.key==='Enter') tryUnlock(); });

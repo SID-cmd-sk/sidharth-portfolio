@@ -1,553 +1,536 @@
 /* ============================================================
-   PORTFOLIO SCRIPT — Sidharth CAD/CAM Engineer
+   PORTFOLIO SCRIPT v2 — Magnetic Cursor + 3D Viewer
    ============================================================ */
 
 gsap.registerPlugin(ScrollTrigger);
-
 let DATA = {};
+let viewer3D = null;
+let currentProject = null;
 
-/* ===== DATA LOAD ===== */
+/* ─── DATA LOAD ──────────────────────────────────────────── */
 async function loadData() {
   try {
     const saved = localStorage.getItem('portfolio_data');
-    if (saved) {
-      DATA = JSON.parse(saved);
-    } else {
-      const res = await fetch('data/portfolio.json');
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      DATA = await res.json();
-    }
-  } catch (e) {
-    console.warn('portfolio.json load failed, using fallback data.', e);
-    DATA = {
-      meta: {
-        name: 'Sidharth',
-        title: 'Application Engineer',
-        subtitle: 'SolidWorks · SolidCAM · DraftSight · CNC Programming',
-        email: 'sidharthkr1859@gmail.com',
-        phone: '7042071859',
-        location: 'Badarpur, South Delhi, Delhi – 110044',
-        socialLinks: { linkedin: '#', github: '#' }
-      },
-      about: 'Application Engineer with hands-on expertise in SolidWorks, SolidCAM, and DraftSight. Passionate about bridging the gap between digital design and physical manufacturing—from generating precision CAD models and CAM toolpaths to automating drafting workflows with AutoLISP scripts and validating G-code for CNC machines.',
-      skills: [
-        { name: 'SolidWorks', level: 95, category: 'CAD' },
-        { name: 'SolidCAM', level: 90, category: 'CAM' },
-        { name: 'DraftSight', level: 88, category: 'CAD' },
-        { name: 'CNC Programming (G-Code)', level: 82, category: 'CNC' },
-        { name: 'AutoLISP Scripting', level: 75, category: 'Programming' },
-        { name: 'CAM Toolpath Generation', level: 87, category: 'CAM' }
-      ],
-      experience: [
-        {
-          id: 'exp1',
-          company: 'SKS Scan tech Engg. Exim Pvt. Ltd.',
-          role: 'Application Engineer',
-          period: 'Dec 2024 – Present',
-          type: 'Full-Time',
-          description: 'Handle technical support, training, and workflow issues for SolidWorks, SolidCAM and DraftSight. Create and refine CAD models, CAM toolpaths, and CNC post processors. Build AutoLISP scripts to automate drafting tasks.',
-          highlights: ['Technical Support', 'CAD/CAM Training', 'AutoLISP Automation', 'G-Code Validation', 'Post Processor Development']
-        },
-        {
-          id: 'exp2',
-          company: 'Rico Auto Industries',
-          role: 'Apprentice – Design & Machining Support',
-          period: 'May 2024 – Dec 2024',
-          type: 'Apprenticeship',
-          description: 'Reviewed and interpreted engineering drawings and CAD models before part production. Modified CAD models to improve manufacturability and machining feasibility.',
-          highlights: ['Engineering Drawing Review', 'CAD Model Modification', 'G-Code Editing', 'Tool Offset Adjustment', 'Design-to-Production Workflow']
-        }
-      ],
-      certifications: [
-        { id: 'c1', name: 'SOLIDWORKS API Professional (CSWP-API)', issuer: 'Dassault Systèmes', level: 'Professional' },
-        { id: 'c2', name: 'SOLIDWORKS Design Professional (CSWP)', issuer: 'Dassault Systèmes', level: 'Professional' },
-        { id: 'c3', name: 'SOLIDWORKS Simulation Associate', issuer: 'Dassault Systèmes', level: 'Associate' },
-        { id: 'c4', name: 'DraftSight Specialist', issuer: 'Dassault Systèmes', level: 'Specialist' },
-        { id: 'c5', name: '3DSwymer Associate', issuer: 'Dassault Systèmes', level: 'Associate' },
-        { id: 'c6', name: 'SOLIDWORKS Design Associate (CSWA)', issuer: 'Dassault Systèmes', level: 'Associate' },
-        { id: 'c7', name: 'SOLIDWORKS CAM Professional', issuer: 'Dassault Systèmes', level: 'Professional' },
-        { id: 'c8', name: 'DraftSight Associate', issuer: 'Dassault Systèmes', level: 'Associate' },
-        { id: 'c9', name: 'Certified SolidCAM Academic Professional', issuer: 'SolidCAM', level: 'Professional' },
-        { id: 'c10', name: 'Certified SolidCAM Academic Associate', issuer: 'SolidCAM', level: 'Associate' }
-      ],
-      projects: [
-        {
-          id: 'p1', title: 'CNC Post Processor Development', category: 'CNC',
-          tools: ['SolidCAM', 'G-Code', 'CNC'], featured: true,
-          description: 'Developed and refined custom CNC post processors to translate SolidCAM toolpaths into machine-specific G-code. Ensured compatibility across multiple CNC machine configurations at client sites.',
-          highlights: ['Custom post processor scripts', 'Multi-machine compatibility', 'G-code validation workflow']
-        },
-        {
-          id: 'p2', title: 'AutoLISP Drafting Automation Suite', category: 'Programming',
-          tools: ['DraftSight', 'AutoLISP'], featured: true,
-          description: 'Built a suite of AutoLISP scripts to automate repetitive drafting tasks in DraftSight—including auto-dimensioning, layer management, and title block population—reducing manual effort by over 60%.',
-          highlights: ['Auto-dimensioning routines', 'Layer automation', 'Title block population']
-        },
-        {
-          id: 'p3', title: 'CAM Toolpath Optimization', category: 'CAM',
-          tools: ['SolidCAM', 'SolidWorks'], featured: false,
-          description: 'Optimized multi-axis CAM toolpaths for complex parts, reducing machining time while maintaining tight tolerances.',
-          highlights: ['Multi-axis machining', 'Cycle time reduction', 'Tolerance validation']
-        },
-        {
-          id: 'p4', title: 'SolidWorks Training Program', category: 'Training',
-          tools: ['SolidWorks', 'SolidCAM'], featured: false,
-          description: 'Designed and delivered structured training programs for engineering clients covering SolidWorks 3D modelling, assembly, drawing, and SolidCAM fundamentals.',
-          highlights: ['Curriculum development', 'Client-facing delivery', 'Technical documentation']
-        },
-        {
-          id: 'p5', title: 'Manufacturability CAD Model Rework', category: 'CAD',
-          tools: ['SolidWorks', 'DraftSight'], featured: false,
-          description: 'At Rico Auto, reviewed and modified production CAD models to improve manufacturability and reduce machining complexity.',
-          highlights: ['Design-for-manufacturing', 'Part feasibility review', 'Cross-team collaboration']
-        },
-        {
-          id: 'p6', title: 'Software–Machine Integration Troubleshooting', category: 'CNC',
-          tools: ['SolidCAM', 'CNC', 'G-Code'], featured: true,
-          description: 'Diagnosed and resolved integration issues between CAM software and CNC machines at multiple client sites.',
-          highlights: ['Root cause analysis', 'On-site troubleshooting', 'G-code debugging']
-        }
-      ]
-    };
+    DATA = saved ? JSON.parse(saved) : await (await fetch('data/portfolio.json')).json();
+  } catch {
+    DATA = await (await fetch('data/portfolio.json')).json();
   }
   init();
 }
 
-/* ===== INIT ===== */
+/* ─── INIT ───────────────────────────────────────────────── */
 function init() {
   initLoader();
-  initCursor();
+  initMagneticCursor();
   initParticles();
   initNavbar();
   renderHero();
   renderAbout();
-  renderSkills();
   renderTimeline();
   renderProjects();
   renderCertifications();
   renderContact();
   initScrollProgress();
-  initAnimations();
+  initScrollAnimations();
 }
 
-/* ===== LOADER ===== */
+/* ─── LOADER ─────────────────────────────────────────────── */
 function initLoader() {
   setTimeout(() => {
-    const loader = document.getElementById('loader');
-    if (loader) {
-      loader.classList.add('hidden');
-      setTimeout(() => { loader.style.display = 'none'; }, 700);
-    }
+    document.getElementById('loader').classList.add('hidden');
     triggerHeroAnimation();
   }, 1600);
 }
 
-/* ===== CUSTOM CURSOR ===== */
-function initCursor() {
-  const dot = document.getElementById('cursor-dot');
+/* ═══════════════════════════════════════════════════════════
+   MAGNETIC CURSOR — smooth interpolation + pull-to-element
+   ═══════════════════════════════════════════════════════════ */
+function initMagneticCursor() {
+  const dot  = document.getElementById('cursor-dot');
   const ring = document.getElementById('cursor-ring');
   if (!dot || !ring) return;
-  let mouseX = 0, mouseY = 0;
-  let ringX = 0, ringY = 0;
 
-  document.addEventListener('mousemove', (e) => {
-    mouseX = e.clientX;
-    mouseY = e.clientY;
-    dot.style.left = mouseX + 'px';
-    dot.style.top = mouseY + 'px';
-  });
+  document.documentElement.style.cursor = 'none';
 
-  function animateRing() {
-    ringX += (mouseX - ringX) * 0.12;
-    ringY += (mouseY - ringY) * 0.12;
-    ring.style.left = ringX + 'px';
-    ring.style.top = ringY + 'px';
-    requestAnimationFrame(animateRing);
+  let mX = innerWidth/2, mY = innerHeight/2;
+  let rX = mX, rY = mY, dotX = mX, dotY = mY;
+  let isHovering = false, magnetStrength = 0;
+
+  document.addEventListener('mousemove', e => { mX = e.clientX; mY = e.clientY; });
+
+  const MAGNETIC = 'a, button, .project-card, .cert-card, .filter-btn, .nav-cta, .btn-primary, .btn-ghost, .skill-tag';
+
+  function getMagnetTarget() {
+    let best = null, bestDist = Infinity;
+    document.querySelectorAll(MAGNETIC).forEach(el => {
+      const r = el.getBoundingClientRect();
+      const cx = r.left + r.width/2, cy = r.top + r.height/2;
+      const dist = Math.hypot(mX-cx, mY-cy);
+      const threshold = Math.max(r.width, r.height) * 0.65;
+      if (dist < threshold && dist < bestDist) { best = {el,cx,cy,dist}; bestDist = dist; }
+    });
+    return best;
   }
-  animateRing();
+
+  function animate() {
+    // Dot: snappy follow
+    dotX += (mX - dotX) * 0.6;
+    dotY += (mY - dotY) * 0.6;
+    dot.style.left = dotX + 'px';
+    dot.style.top  = dotY + 'px';
+
+    const mag = getMagnetTarget();
+    if (mag) {
+      // Pull ring toward element center
+      const pull = 0.28;
+      const tRX = mX + (mag.cx - mX) * pull * 2.8;
+      const tRY = mY + (mag.cy - mY) * pull * 2.8;
+      rX += (tRX - rX) * 0.2;
+      rY += (tRY - rY) * 0.2;
+      magnetStrength = Math.min(magnetStrength + 0.1, 1);
+      const s = 1 + magnetStrength * 0.9;
+      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(${s});border-color:rgba(0,200,255,1);background:rgba(0,200,255,0.07);width:42px;height:42px;`;
+      if (!isHovering) { isHovering = true; dot.style.opacity = '0.4'; dot.style.transform = 'translate(-50%,-50%) scale(0.5)'; }
+    } else {
+      rX += (mX - rX) * 0.11;
+      rY += (mY - rY) * 0.11;
+      magnetStrength = Math.max(magnetStrength - 0.12, 0);
+      ring.style.cssText += `left:${rX}px;top:${rY}px;transform:translate(-50%,-50%) scale(1);border-color:rgba(0,200,255,0.45);background:transparent;width:36px;height:36px;`;
+      if (isHovering) { isHovering = false; dot.style.opacity = '1'; dot.style.transform = 'translate(-50%,-50%) scale(1)'; }
+    }
+    requestAnimationFrame(animate);
+  }
+  animate();
+
+  document.addEventListener('mousedown', () => {
+    gsap.to(ring, { scale:0.65, duration:0.12, ease:'power2.out', overwrite:true });
+    gsap.to(dot,  { scale:2,    duration:0.12, ease:'power2.out', overwrite:true });
+    // Ripple burst
+    spawnRipple(mX, mY);
+  });
+  document.addEventListener('mouseup', () => {
+    gsap.to(ring, { scale:1, duration:0.5, ease:'elastic.out(1,0.45)', overwrite:true });
+    gsap.to(dot,  { scale:1, duration:0.3, ease:'power2.out', overwrite:true });
+  });
+  document.addEventListener('mouseleave', () => { dot.style.opacity='0'; ring.style.opacity='0'; });
+  document.addEventListener('mouseenter', () => { dot.style.opacity='1'; ring.style.opacity='1'; });
 }
 
-/* ===== PARTICLES ===== */
+function spawnRipple(x, y) {
+  const r = document.createElement('div');
+  r.style.cssText = `position:fixed;left:${x}px;top:${y}px;width:4px;height:4px;
+    border:1px solid rgba(0,200,255,0.6);border-radius:50%;pointer-events:none;
+    z-index:9990;transform:translate(-50%,-50%);`;
+  document.body.appendChild(r);
+  gsap.to(r, { width:60, height:60, opacity:0, duration:0.6, ease:'power2.out',
+    onComplete: () => r.remove() });
+}
+
+/* ─── PARTICLES ──────────────────────────────────────────── */
 function initParticles() {
   const canvas = document.getElementById('bg-particles');
-  if (!canvas) return;
   const ctx = canvas.getContext('2d');
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-
-  const particles = [];
-  const count = 55;
-
-  for (let i = 0; i < count; i++) {
-    particles.push({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      r: Math.random() * 1.5 + 0.3,
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: (Math.random() - 0.5) * 0.25,
-      alpha: Math.random() * 0.4 + 0.1,
+  let W = canvas.width = innerWidth, H = canvas.height = innerHeight;
+  const pts = Array.from({length:60}, () => ({
+    x:Math.random()*W, y:Math.random()*H,
+    r:Math.random()*1.2+0.3, vx:(Math.random()-.5)*.22, vy:(Math.random()-.5)*.22, a:Math.random()*.35+.08
+  }));
+  (function draw() {
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle = `rgba(0,200,255,${p.a})`; ctx.fill();
+      p.x=(p.x+p.vx+W)%W; p.y=(p.y+p.vy+H)%H;
     });
-  }
-
-  function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    particles.forEach(p => {
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
-      ctx.fillStyle = `rgba(0,200,255,${p.alpha})`;
-      ctx.fill();
-      p.x += p.vx;
-      p.y += p.vy;
-      if (p.x < 0) p.x = canvas.width;
-      if (p.x > canvas.width) p.x = 0;
-      if (p.y < 0) p.y = canvas.height;
-      if (p.y > canvas.height) p.y = 0;
-    });
-    for (let i = 0; i < particles.length; i++) {
-      for (let j = i + 1; j < particles.length; j++) {
-        const dx = particles[i].x - particles[j].x;
-        const dy = particles[i].y - particles[j].y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-        if (dist < 120) {
-          ctx.beginPath();
-          ctx.moveTo(particles[i].x, particles[i].y);
-          ctx.lineTo(particles[j].x, particles[j].y);
-          ctx.strokeStyle = `rgba(0,200,255,${0.08 * (1 - dist / 120)})`;
-          ctx.lineWidth = 0.5;
-          ctx.stroke();
-        }
-      }
+    for (let i=0;i<pts.length;i++) for (let j=i+1;j<pts.length;j++) {
+      const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y, d=Math.hypot(dx,dy);
+      if (d<110) { ctx.beginPath(); ctx.moveTo(pts[i].x,pts[i].y); ctx.lineTo(pts[j].x,pts[j].y);
+        ctx.strokeStyle=`rgba(0,200,255,${.07*(1-d/110)})`; ctx.lineWidth=.6; ctx.stroke(); }
     }
     requestAnimationFrame(draw);
-  }
-  draw();
-
-  window.addEventListener('resize', () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  });
+  })();
+  window.addEventListener('resize', () => { W=canvas.width=innerWidth; H=canvas.height=innerHeight; });
 }
 
-/* ===== NAVBAR ===== */
+/* ─── NAVBAR ─────────────────────────────────────────────── */
 function initNavbar() {
-  const navbar = document.getElementById('navbar');
-  if (!navbar) return;
-  window.addEventListener('scroll', () => {
-    navbar.classList.toggle('scrolled', window.scrollY > 50);
-  });
-  const hamburger = document.getElementById('hamburger');
-  if (hamburger) {
-    hamburger.addEventListener('click', () => {
-      document.getElementById('nav-links').classList.toggle('open');
-    });
-  }
+  window.addEventListener('scroll', () =>
+    document.getElementById('navbar').classList.toggle('scrolled', scrollY>50));
+  document.getElementById('hamburger')?.addEventListener('click', () =>
+    document.getElementById('nav-links').classList.toggle('open'));
 }
 
-/* ===== SCROLL PROGRESS ===== */
+/* ─── SCROLL PROGRESS ────────────────────────────────────── */
 function initScrollProgress() {
   const bar = document.getElementById('scroll-progress');
-  if (!bar) return;
-  window.addEventListener('scroll', () => {
-    const pct = (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100;
-    bar.style.width = pct + '%';
-  });
+  window.addEventListener('scroll', () =>
+    bar.style.width = (scrollY/(document.body.scrollHeight-innerHeight)*100)+'%');
 }
 
-/* ===== HERO RENDER ===== */
-function renderHero() {
-  const desc = document.getElementById('hero-desc');
-  if (desc) desc.textContent = DATA.about;
-}
-
+/* ─── HERO ───────────────────────────────────────────────── */
+function renderHero() { document.getElementById('hero-desc').textContent = DATA.about; }
 function triggerHeroAnimation() {
-  // FIX: Set initial states FIRST, then animate into place
-  gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'], { opacity: 0, y: 30 });
-  gsap.set('#hero-visual', { opacity: 0, x: 50 });
-
+  gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'],{y:30});
+  gsap.set('#hero-visual',{x:50});
   const tl = gsap.timeline();
-  tl.to('#hero-badge',  { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.1)
-    .to('#hero-name',   { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, 0.25)
-    .to('#hero-title',  { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.4)
-    .to('#hero-desc',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.55)
-    .to('#hero-btns',   { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.65)
-    .to('#hero-stats',  { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' }, 0.75)
-    .to('#hero-visual', { opacity: 1, x: 0, duration: 0.8, ease: 'power3.out' }, 0.3);
+  tl.to('#hero-badge',{opacity:1,y:0,duration:.6,ease:'power3.out'},.1)
+    .to('#hero-name', {opacity:1,y:0,duration:.7,ease:'power3.out'},.25)
+    .to('#hero-title',{opacity:1,y:0,duration:.6,ease:'power3.out'},.4)
+    .to('#hero-desc', {opacity:1,y:0,duration:.6,ease:'power3.out'},.52)
+    .to('#hero-btns', {opacity:1,y:0,duration:.6,ease:'power3.out'},.62)
+    .to('#hero-stats',{opacity:1,y:0,duration:.6,ease:'power3.out'},.72)
+    .to('#hero-visual',{opacity:1,x:0,duration:.9,ease:'power3.out'},.3);
 }
 
-/* ===== ABOUT RENDER ===== */
+/* ─── ABOUT ──────────────────────────────────────────────── */
 function renderAbout() {
-  const aboutText = document.getElementById('about-text');
-  if (aboutText) aboutText.textContent = DATA.about;
-
+  document.getElementById('about-text').textContent = DATA.about;
   const m = DATA.meta;
-  const infoData = [
-    { icon: '📧', label: m.email },
-    { icon: '📱', label: m.phone },
-    { icon: '📍', label: m.location },
-  ];
-
-  const infoList = document.getElementById('info-list');
-  if (infoList) {
-    infoList.innerHTML = infoData.map(i => `
-      <div class="info-item">
-        <div class="info-item-icon">${i.icon}</div>
-        <span>${i.label}</span>
-      </div>
-    `).join('');
-  }
-
-  const panel = document.getElementById('skills-panel');
-  if (panel) {
-    panel.innerHTML = DATA.skills.slice(0, 6).map(s => `
-      <div class="skill-item">
-        <div class="skill-header">
-          <span class="skill-name">${s.name}</span>
-          <span class="skill-pct">${s.level}%</span>
-        </div>
-        <div class="skill-bar">
-          <div class="skill-fill" data-level="${s.level}"></div>
-        </div>
-      </div>
-    `).join('');
-  }
+  document.getElementById('info-list').innerHTML = [
+    {icon:'📧',v:m.email},{icon:'📱',v:m.phone},{icon:'📍',v:m.location}
+  ].map(i=>`<div class="info-item"><div class="info-item-icon">${i.icon}</div><span>${i.v}</span></div>`).join('');
+  document.getElementById('skills-panel').innerHTML = DATA.skills.slice(0,6).map(s=>`
+    <div class="skill-item">
+      <div class="skill-header"><span class="skill-name">${s.name}</span><span class="skill-pct">${s.level}%</span></div>
+      <div class="skill-bar"><div class="skill-fill" data-level="${s.level}"></div></div>
+    </div>`).join('');
 }
 
-/* ===== SKILLS RENDER ===== */
-function renderSkills() {
-  // Skills are rendered inline within about section.
-}
-
-/* ===== TIMELINE RENDER ===== */
+/* ─── TIMELINE ───────────────────────────────────────────── */
 function renderTimeline() {
-  const container = document.getElementById('timeline');
-  if (!container) return;
-  container.innerHTML = DATA.experience.map((exp, i) => `
-    <div class="timeline-item" data-index="${i}">
+  document.getElementById('timeline').innerHTML = DATA.experience.map(e=>`
+    <div class="timeline-item">
       <div class="timeline-dot"></div>
-      <div class="timeline-meta">
-        <span class="timeline-period">${exp.period}</span>
-        <span class="timeline-badge">${exp.type}</span>
-      </div>
-      <div class="timeline-role">${exp.role}</div>
-      <div class="timeline-company">${exp.company}</div>
-      <p class="timeline-desc">${exp.description}</p>
-      <div class="timeline-pills">
-        ${exp.highlights.map(h => `<span class="pill">${h}</span>`).join('')}
-      </div>
-    </div>
-  `).join('');
+      <div class="timeline-meta"><span class="timeline-period">${e.period}</span><span class="timeline-badge">${e.type}</span></div>
+      <div class="timeline-role">${e.role}</div>
+      <div class="timeline-company">${e.company}</div>
+      <p class="timeline-desc">${e.description}</p>
+      <div class="timeline-pills">${e.highlights.map(h=>`<span class="pill">${h}</span>`).join('')}</div>
+    </div>`).join('');
 }
 
-/* ===== PROJECTS RENDER ===== */
-const CATEGORY_ICONS = { CAD: '🔷', CAM: '⚙️', CNC: '🔩', Programming: '💻', Training: '📚', Design: '✏️' };
+/* ═══════════════════════════════════════════════════════════
+   PROJECTS — media badges + category icons
+   ═══════════════════════════════════════════════════════════ */
+const CAT_ICON = {CAD:'🔷',CAM:'⚙️',CNC:'🔩',Programming:'💻',Training:'📚',Design:'✏️'};
 
 function renderProjects() {
   const grid = document.getElementById('projects-grid');
-  const filterGroup = document.getElementById('filter-group');
-  if (!grid || !filterGroup) return;
-
-  const categories = [...new Set(DATA.projects.map(p => p.category))];
-  categories.forEach(cat => {
-    const btn = document.createElement('button');
-    btn.className = 'filter-btn';
-    btn.dataset.filter = cat;
-    btn.textContent = cat;
-    filterGroup.appendChild(btn);
+  const fg   = document.getElementById('filter-group');
+  [...new Set(DATA.projects.map(p=>p.category))].forEach(c=>{
+    const b=document.createElement('button'); b.className='filter-btn'; b.dataset.filter=c; b.textContent=c; fg.appendChild(b);
   });
-
-  grid.innerHTML = DATA.projects.map(p => `
+  grid.innerHTML = DATA.projects.map(p=>{
+    const has3D    = !!p.model3d;
+    const hasPhoto = p.photos?.length>0;
+    const hasVideo = p.videos?.length>0;
+    const badges   = [
+      has3D    ? '<span class="media-badge badge-3d">3D</span>' : '',
+      hasPhoto ? `<span class="media-badge badge-photo">📷 ${p.photos.length}</span>` : '',
+      hasVideo ? `<span class="media-badge badge-video">▶ ${p.videos.length}</span>` : '',
+    ].filter(Boolean).join('');
+    const thumb = hasPhoto
+      ? `<img src="${p.photos[0].url}" alt="${p.title}" style="width:100%;height:100%;object-fit:cover;opacity:.7;" loading="lazy"/>`
+      : `<div class="project-thumb-icon">${CAT_ICON[p.category]||'🔧'}</div>`;
+    return `
     <div class="project-card" data-category="${p.category}" data-tools="${p.tools.join(',')}" data-title="${p.title}" onclick="openModal('${p.id}')">
       <div class="project-thumb">
-        <div class="project-thumb-icon">${CATEGORY_ICONS[p.category] || '🔧'}</div>
+        ${thumb}
         <div class="project-thumb-label">${p.category}</div>
-        ${p.featured ? '<div class="project-featured">Featured</div>' : ''}
+        ${p.featured?'<div class="project-featured">Featured</div>':''}
+        ${badges?`<div class="project-media-badges">${badges}</div>`:''}
       </div>
       <div class="project-body">
-        <div class="project-tools">${p.tools.map(t => `<span class="project-tool">${t}</span>`).join('')}</div>
+        <div class="project-tools">${p.tools.map(t=>`<span class="project-tool">${t}</span>`).join('')}</div>
         <div class="project-title">${p.title}</div>
-        <p class="project-desc">${p.description.slice(0, 100)}...</p>
+        <p class="project-desc">${p.description.slice(0,100)}…</p>
       </div>
       <div class="project-arrow">→</div>
-    </div>
-  `).join('');
-
-  document.querySelectorAll('.filter-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      filterProjects();
-    });
-  });
-
-  const searchInput = document.getElementById('search-input');
-  if (searchInput) searchInput.addEventListener('input', filterProjects);
+    </div>`;
+  }).join('');
+  document.querySelectorAll('.filter-btn').forEach(btn=>btn.addEventListener('click',()=>{
+    document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); filterProjects();
+  }));
+  document.getElementById('search-input').addEventListener('input', filterProjects);
 }
 
 function filterProjects() {
-  const activeFilter = document.querySelector('.filter-btn.active')?.dataset.filter || 'all';
-  const searchTerm = document.getElementById('search-input')?.value.toLowerCase() || '';
-  const cards = document.querySelectorAll('.project-card');
-
-  cards.forEach(card => {
-    const catMatch = activeFilter === 'all' || card.dataset.category === activeFilter;
-    const searchMatch = !searchTerm ||
-      card.dataset.title.toLowerCase().includes(searchTerm) ||
-      card.dataset.tools.toLowerCase().includes(searchTerm) ||
-      card.dataset.category.toLowerCase().includes(searchTerm);
-
-    if (catMatch && searchMatch) {
-      card.classList.remove('hidden');
-      gsap.fromTo(card, { opacity: 0, scale: 0.92, y: 20 }, { opacity: 1, scale: 1, y: 0, duration: 0.4, ease: 'power3.out' });
-    } else {
-      gsap.to(card, { opacity: 0, scale: 0.92, y: 20, duration: 0.25, onComplete: () => card.classList.add('hidden') });
-    }
+  const af = document.querySelector('.filter-btn.active')?.dataset.filter||'all';
+  const q  = document.getElementById('search-input').value.toLowerCase();
+  document.querySelectorAll('.project-card').forEach(card=>{
+    const ok = (af==='all'||card.dataset.category===af) && (!q||card.dataset.title.toLowerCase().includes(q)||card.dataset.tools.toLowerCase().includes(q));
+    if (ok) { card.classList.remove('hidden'); gsap.fromTo(card,{opacity:0,scale:.93,y:20},{opacity:1,scale:1,y:0,duration:.4,ease:'power3.out'}); }
+    else gsap.to(card,{opacity:0,scale:.93,y:20,duration:.22,onComplete:()=>card.classList.add('hidden')});
   });
 }
 
-/* ===== MODAL ===== */
+/* ═══════════════════════════════════════════════════════════
+   MODAL — info + tabbed media (photos / videos / 3D)
+   ═══════════════════════════════════════════════════════════ */
 function openModal(id) {
-  const project = DATA.projects.find(p => p.id === id);
-  if (!project) return;
-
-  document.getElementById('modal-cat').textContent = project.category;
-  document.getElementById('modal-title').textContent = project.title;
-  document.getElementById('modal-desc').textContent = project.description;
-  document.getElementById('modal-tools').innerHTML = project.tools.map(t =>
-    `<span class="project-tool" style="padding:0.3rem 0.8rem;font-size:0.75rem;">${t}</span>`
-  ).join('');
-  document.getElementById('modal-highlights').innerHTML = project.highlights.map(h =>
-    `<li style="color:var(--text-dim);font-size:0.9rem;padding-left:1rem;position:relative;">
-      <span style="position:absolute;left:0;color:var(--neon);">▸</span>${h}
-    </li>`
-  ).join('');
-
+  currentProject = DATA.projects.find(p=>p.id===id);
+  if (!currentProject) return;
+  const p = currentProject;
+  document.getElementById('modal-cat').textContent   = p.category;
+  document.getElementById('modal-title').textContent = p.title;
+  document.getElementById('modal-desc').textContent  = p.description;
+  document.getElementById('modal-tools').innerHTML   = p.tools.map(t=>`<span class="project-tool" style="padding:.3rem .8rem;font-size:.75rem;">${t}</span>`).join('');
+  document.getElementById('modal-highlights').innerHTML = p.highlights.map(h=>`
+    <li style="color:var(--text-dim);font-size:.9rem;padding-left:1.2rem;position:relative;margin-bottom:.4rem;">
+      <span style="position:absolute;left:0;color:var(--neon);">▸</span>${h}</li>`).join('');
+  buildModalMedia(p);
   document.getElementById('modal-overlay').classList.add('active');
   document.body.style.overflow = 'hidden';
 }
 
+function buildModalMedia(p) {
+  const wrap = document.getElementById('modal-media');
+  wrap.innerHTML = '';
+  const has3D    = !!p.model3d;
+  const hasPhoto = p.photos?.length>0;
+  const hasVideo = p.videos?.length>0;
+  if (!has3D && !hasPhoto && !hasVideo) return;
+
+  const tabs = [];
+  if (hasPhoto) tabs.push({id:'photos', label:`📷 Photos (${p.photos.length})`});
+  if (hasVideo) tabs.push({id:'videos', label:`▶ Videos (${p.videos.length})`});
+  if (has3D)    tabs.push({id:'3d',     label:'🔷 3D Model'});
+
+  wrap.innerHTML = `
+    <div class="media-tabs">
+      ${tabs.map((t,i)=>`<button class="media-tab${i===0?' active':''}" onclick="switchTab('${t.id}')">${t.label}</button>`).join('')}
+    </div>
+    <div class="media-panels">
+      ${hasPhoto?`<div class="media-panel active" id="mpanel-photos">${buildPhotoGallery(p.photos)}</div>`:''}
+      ${hasVideo?`<div class="media-panel" id="mpanel-videos">${buildVideoGallery(p.videos)}</div>`:''}
+      ${has3D?`<div class="media-panel" id="mpanel-3d">
+        <div id="viewer3d-container" style="width:100%;height:360px;border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);position:relative;"></div>
+        <p style="font-size:.72rem;color:var(--text-dim);margin-top:.5rem;text-align:center;">🖱 Drag to rotate · Scroll to zoom · Right-drag to pan · Touch supported</p>
+      </div>`:''}
+    </div>`;
+  if (tabs[0]?.id==='3d') setTimeout(()=>init3DViewer(p.model3d),80);
+}
+
+function switchTab(id) {
+  document.querySelectorAll('.media-tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.media-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelector(`.media-tab[onclick*="${id}"]`)?.classList.add('active');
+  document.getElementById(`mpanel-${id}`)?.classList.add('active');
+  if (id==='3d' && currentProject?.model3d) setTimeout(()=>init3DViewer(currentProject.model3d),50);
+}
+
+function buildPhotoGallery(photos) {
+  return `<div class="photo-gallery">
+    <div class="photo-main"><img src="${photos[0].url}" alt="" id="photo-main-img" style="width:100%;height:240px;object-fit:contain;border-radius:8px;background:#070b14;" />
+      <div class="photo-caption" id="photo-caption">${photos[0].caption||''}</div></div>
+    ${photos.length>1?`<div class="photo-thumbs">${photos.map((ph,i)=>`
+      <div class="photo-thumb${i===0?' active':''}" onclick="setPhoto('${ph.url}','${ph.caption||''}',${i})">
+        <img src="${ph.url}" alt="" loading="lazy" style="width:100%;height:60px;object-fit:cover;border-radius:5px;" /></div>`).join('')}</div>`:''}
+  </div>`;
+}
+
+function setPhoto(url, cap, idx) {
+  const img = document.getElementById('photo-main-img');
+  const capEl = document.getElementById('photo-caption');
+  gsap.to(img,{opacity:0,duration:.18,onComplete:()=>{ img.src=url; if(capEl) capEl.textContent=cap; gsap.to(img,{opacity:1,duration:.25}); }});
+  document.querySelectorAll('.photo-thumb').forEach((t,i)=>t.classList.toggle('active',i===idx));
+}
+
+function buildVideoGallery(videos) {
+  return `<div class="video-gallery">${videos.map(v=>`
+    <div class="video-item" style="margin-bottom:1.2rem;">
+      ${v.type==='youtube'
+        ?`<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${v.id}" style="position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:0;" allowfullscreen loading="lazy"></iframe></div>`
+        :`<video controls preload="metadata" style="width:100%;border-radius:8px;"><source src="${v.url}" /></video>`}
+      ${v.caption?`<p style="font-size:.75rem;color:var(--text-dim);margin-top:.4rem;">${v.caption}</p>`:''}
+    </div>`).join('')}</div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   3D VIEWER — Three.js · STL · OBJ · GLTF/GLB · fallback
+   ═══════════════════════════════════════════════════════════ */
+function init3DViewer(modelData) {
+  const container = document.getElementById('viewer3d-container');
+  if (!container) return;
+  if (viewer3D) { viewer3D.dispose(); viewer3D=null; }
+  container.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:.8rem;">
+    <div class="loader-spin"></div>
+    <span style="color:var(--text-dim);font-family:var(--font-mono);font-size:.7rem;letter-spacing:2px;">LOADING 3D MODEL…</span></div>`;
+  if (!window.THREE) {
+    const s=document.createElement('script');
+    s.src='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js';
+    s.onload=()=>setupScene(container,modelData);
+    s.onerror=()=>{ container.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-dim);font-size:.85rem;">Three.js unavailable</div>'; };
+    document.head.appendChild(s);
+  } else setupScene(container,modelData);
+}
+
+function setupScene(container, modelData) {
+  const THREE=window.THREE;
+  if (!THREE) return;
+  container.innerHTML='';
+  const W=container.clientWidth, H=container.clientHeight||360;
+  const scene=new THREE.Scene(); scene.background=new THREE.Color(0x070b14);
+  const camera=new THREE.PerspectiveCamera(45,W/H,.01,1000); camera.position.set(0,1.5,4);
+  const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setSize(W,H); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.shadowMap.enabled=true; container.appendChild(renderer.domElement);
+
+  // Lighting
+  scene.add(new THREE.AmbientLight(0x445566,1.4));
+  const d1=new THREE.DirectionalLight(0x00c8ff,1.6); d1.position.set(5,10,5); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x7b2fff,.9); d2.position.set(-5,-3,-5); scene.add(d2);
+  const pt=new THREE.PointLight(0x00ff9d,.7,20); pt.position.set(0,5,0); scene.add(pt);
+  const grid=new THREE.GridHelper(8,24,0x00c8ff,0x112233); grid.position.y=-1.5; scene.add(grid);
+
+  // Orbit state
+  let phi=Math.PI/3, theta=Math.PI/4, radius=4, panX=0, panY=0;
+  let isDragging=false, isRight=false, lastX=0, lastY=0;
+  renderer.domElement.addEventListener('mousedown',e=>{ isDragging=true; isRight=e.button===2; lastX=e.clientX; lastY=e.clientY; e.preventDefault(); });
+  renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+  window.addEventListener('mousemove',e=>{ if(!isDragging)return; const dx=e.clientX-lastX, dy=e.clientY-lastY; lastX=e.clientX; lastY=e.clientY;
+    if(isRight){panX+=dx*.005;panY-=dy*.005;}else{theta-=dx*.009;phi=Math.max(.05,Math.min(Math.PI-.05,phi+dy*.009));} });
+  window.addEventListener('mouseup',()=>isDragging=false);
+  renderer.domElement.addEventListener('wheel',e=>{ radius=Math.max(.5,Math.min(30,radius+e.deltaY*.012)); e.preventDefault(); },{passive:false});
+  // Touch
+  let touches=[];
+  renderer.domElement.addEventListener('touchstart',e=>{touches=[...e.touches];},{passive:true});
+  renderer.domElement.addEventListener('touchmove',e=>{
+    if(e.touches.length===1){const dx=e.touches[0].clientX-touches[0].clientX,dy=e.touches[0].clientY-touches[0].clientY; theta-=dx*.012; phi=Math.max(.1,Math.min(Math.PI-.1,phi+dy*.012));}
+    else if(e.touches.length===2){const d0=Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY); const d1=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY); radius=Math.max(.5,Math.min(30,radius-(d1-d0)*.02));}
+    touches=[...e.touches]; e.preventDefault();
+  },{passive:false});
+
+  // Load model
+  const fmt=(modelData?.format||'').toLowerCase();
+  const url=modelData?.url||'';
+  if (url.match(/\.stl$/i)||fmt==='stl') loadSTL(scene,url,THREE,m=>centerModel(m,camera));
+  else if (url.match(/\.obj$/i)||fmt==='obj') loadOBJ(scene,url,THREE,m=>centerModel(m,camera));
+  else if (url.match(/\.(gltf|glb)$/i)||fmt==='gltf'||fmt==='glb') loadGLTF(scene,url,THREE,m=>centerModel(m.scene||m,camera));
+  else buildDemoModel(scene,THREE); // Procedural demo part
+
+  // Render loop
+  let raf; function render(){
+    raf=requestAnimationFrame(render);
+    camera.position.x=radius*Math.sin(phi)*Math.sin(theta)+panX;
+    camera.position.y=radius*Math.cos(phi)+panY;
+    camera.position.z=radius*Math.sin(phi)*Math.cos(theta);
+    camera.lookAt(panX,panY,0);
+    if(!isDragging) theta+=.004;
+    renderer.render(scene,camera);
+  } render();
+
+  const ro=new ResizeObserver(()=>{ const w=container.clientWidth,h=container.clientHeight||360; renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix(); });
+  ro.observe(container);
+  viewer3D={ dispose:()=>{ cancelAnimationFrame(raf); ro.disconnect(); renderer.dispose(); container.innerHTML=''; } };
+}
+
+function centerModel(obj, camera) {
+  if (!obj) return;
+  const box=new THREE.Box3().setFromObject(obj);
+  const center=box.getCenter(new THREE.Vector3());
+  const size=box.getSize(new THREE.Vector3());
+  obj.position.sub(center);
+  camera.position.z=Math.max(size.x,size.y,size.z)*2.2;
+}
+
+function loadSTL(scene,url,THREE,cb){
+  fetch(url).then(r=>r.arrayBuffer()).then(buf=>{
+    const v=new DataView(buf), n=v.getUint32(80,true);
+    const pos=new Float32Array(n*9),nor=new Float32Array(n*9);
+    for(let i=0;i<n;i++){const o=84+i*50,nx=v.getFloat32(o,true),ny=v.getFloat32(o+4,true),nz=v.getFloat32(o+8,true);
+      for(let j=0;j<3;j++){const vo=o+12+j*12; pos[i*9+j*3]=v.getFloat32(vo,true);pos[i*9+j*3+1]=v.getFloat32(vo+4,true);pos[i*9+j*3+2]=v.getFloat32(vo+8,true);
+        nor[i*9+j*3]=nx;nor[i*9+j*3+1]=ny;nor[i*9+j*3+2]=nz;}}
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos,3)); geo.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+    const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x00c8ff,metalness:.85,roughness:.2,side:THREE.DoubleSide}));
+    scene.add(mesh); cb(mesh);
+  }).catch(()=>{ buildDemoModel(scene,THREE); });
+}
+
+function loadOBJ(scene,url,THREE,cb){
+  fetch(url).then(r=>r.text()).then(txt=>{
+    const verts=[],posArr=[]; txt.split('\n').forEach(line=>{const p=line.trim().split(/\s+/);
+      if(p[0]==='v') verts.push([+p[1],+p[2],+p[3]]);
+      if(p[0]==='f'){const idx=p.slice(1).map(x=>parseInt(x.split('/')[0])-1);
+        for(let i=1;i<idx.length-1;i++) [idx[0],idx[i],idx[i+1]].forEach(vi=>posArr.push(...verts[vi]));} });
+    const geo=new THREE.BufferGeometry(); geo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(posArr),3)); geo.computeVertexNormals();
+    const mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x00c8ff,metalness:.8,roughness:.25,side:THREE.DoubleSide}));
+    scene.add(mesh); cb(mesh);
+  }).catch(()=>{ buildDemoModel(scene,THREE); });
+}
+
+function loadGLTF(scene,url,THREE,cb){
+  if(!window.GLTFLoader){
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js';
+    s.onload=()=>_gltf(scene,url,THREE,cb); s.onerror=()=>buildDemoModel(scene,THREE);
+    document.head.appendChild(s);
+  } else _gltf(scene,url,THREE,cb);
+}
+function _gltf(scene,url,THREE,cb){
+  try{ new THREE.GLTFLoader().load(url,g=>{scene.add(g.scene);cb(g);},undefined,()=>buildDemoModel(scene,THREE)); }
+  catch{ buildDemoModel(scene,THREE); }
+}
+
+function buildDemoModel(scene,THREE){
+  const g=new THREE.Group();
+  const mat1=new THREE.MeshStandardMaterial({color:0x334455,metalness:.92,roughness:.25});
+  const mat2=new THREE.MeshStandardMaterial({color:0x00c8ff,metalness:.95,roughness:.1,emissive:0x002233});
+  g.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(2.2,.18,1.6),mat1)));
+  const boss=new THREE.Mesh(new THREE.CylinderGeometry(.28,.28,.65,32),mat2); boss.position.set(0,.42,0); g.add(boss);
+  [[-.75,.12,-.6],[.75,.12,-.6],[-.75,.12,.6],[.75,.12,.6]].forEach(pos=>{
+    const h=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,.22,14),new THREE.MeshStandardMaterial({color:0x111827,metalness:.5,roughness:.8}));
+    h.position.set(...pos); g.add(h);
+  });
+  [-.55,.55].forEach(x=>{const r=new THREE.Mesh(new THREE.BoxGeometry(.07,.55,1.6),mat1); r.position.set(x,.28,0); g.add(r);});
+  scene.add(g); return g;
+}
+
+/* ─── CLOSE MODAL ────────────────────────────────────────── */
 function closeModal(e) {
-  if (e && e.target !== document.getElementById('modal-overlay') && !e.target.classList.contains('modal-close')) return;
+  if (e && e.target!==document.getElementById('modal-overlay') && !e.target.classList.contains('modal-close')) return;
   document.getElementById('modal-overlay').classList.remove('active');
-  document.body.style.overflow = '';
+  document.body.style.overflow='';
+  if (viewer3D) { viewer3D.dispose(); viewer3D=null; }
 }
+document.addEventListener('keydown', e=>{ if(e.key==='Escape') closeModal(); });
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    const overlay = document.getElementById('modal-overlay');
-    if (overlay) overlay.classList.remove('active');
-    document.body.style.overflow = '';
-  }
-});
-
-/* ===== CERTIFICATIONS RENDER ===== */
+/* ─── CERTIFICATIONS ─────────────────────────────────────── */
 function renderCertifications() {
-  const grid = document.getElementById('certs-grid');
-  if (!grid) return;
-  grid.innerHTML = DATA.certifications.map(c => `
-    <div class="cert-card">
-      <div class="cert-icon">🏆</div>
+  document.getElementById('certs-grid').innerHTML=DATA.certifications.map(c=>`
+    <div class="cert-card"><div class="cert-icon">🏆</div>
       <div class="cert-info">
-        <div class="cert-level ${c.level === 'Professional' ? 'pro' : c.level === 'Specialist' ? 'spec' : 'assoc'}">${c.level}</div>
-        <div class="cert-name">${c.name}</div>
-        <div class="cert-issuer">${c.issuer}</div>
-      </div>
-    </div>
-  `).join('');
+        <div class="cert-level ${c.level==='Professional'?'pro':c.level==='Specialist'?'spec':'assoc'}">${c.level}</div>
+        <div class="cert-name">${c.name}</div><div class="cert-issuer">${c.issuer}</div>
+      </div></div>`).join('');
 }
 
-/* ===== CONTACT RENDER ===== */
+/* ─── CONTACT ────────────────────────────────────────────── */
 function renderContact() {
-  const m = DATA.meta;
-  const contactItems = document.getElementById('contact-items');
-  if (!contactItems) return;
-  const items = [
-    { icon: '📧', label: 'Email', value: m.email },
-    { icon: '📱', label: 'Phone', value: m.phone },
-    { icon: '📍', label: 'Location', value: m.location },
-  ];
-  contactItems.innerHTML = items.map(i => `
-    <div class="contact-item">
-      <div class="contact-item-icon">${i.icon}</div>
-      <div>
-        <div class="contact-item-label">${i.label}</div>
-        <div class="contact-item-value">${i.value}</div>
-      </div>
-    </div>
-  `).join('');
+  const m=DATA.meta;
+  document.getElementById('contact-items').innerHTML=[
+    {icon:'📧',label:'Email',v:m.email},{icon:'📱',label:'Phone',v:m.phone},{icon:'📍',label:'Location',v:m.location}
+  ].map(i=>`<div class="contact-item"><div class="contact-item-icon">${i.icon}</div>
+    <div><div class="contact-item-label">${i.label}</div><div class="contact-item-value">${i.v}</div></div></div>`).join('');
 }
 
-/* ===== FORM SUBMIT ===== */
 function submitForm() {
-  const name = document.getElementById('form-name').value;
-  const email = document.getElementById('form-email').value;
-  const msg = document.getElementById('form-msg').value;
-  if (!name || !email || !msg) { showToast('Please fill all fields.'); return; }
-  showToast('Message sent! I\'ll get back to you soon.');
-  document.getElementById('form-name').value = '';
-  document.getElementById('form-email').value = '';
-  document.getElementById('form-msg').value = '';
+  const n=document.getElementById('form-name').value, e=document.getElementById('form-email').value, m=document.getElementById('form-msg').value;
+  if(!n||!e||!m){showToast('Please fill all fields.');return;}
+  showToast("Message sent! I'll get back to you soon.");
+  ['form-name','form-email','form-msg'].forEach(id=>document.getElementById(id).value='');
 }
 
-/* ===== TOAST ===== */
-function showToast(msg) {
-  const t = document.getElementById('toast');
-  if (!t) return;
-  t.textContent = msg;
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 3500);
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3500);}
+
+/* ─── SCROLL ANIMATIONS ──────────────────────────────────── */
+function initScrollAnimations() {
+  gsap.utils.toArray('.reveal').forEach(el=>gsap.fromTo(el,{opacity:0,y:40},{opacity:1,y:0,duration:.7,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 88%',toggleActions:'play none none none'}}));
+  ScrollTrigger.create({trigger:'#about',start:'top 62%',onEnter:()=>document.querySelectorAll('.skill-fill').forEach(b=>gsap.to(b,{width:b.dataset.level+'%',duration:1.4,ease:'power3.out',delay:.2}))});
+  ScrollTrigger.create({trigger:'#projects-grid',start:'top 85%',onEnter:()=>gsap.utils.toArray('.project-card').forEach((c,i)=>gsap.to(c,{opacity:1,y:0,duration:.6,ease:'power3.out',delay:i*.09}))});
+  gsap.utils.toArray('.timeline-item').forEach((el,i)=>gsap.to(el,{opacity:1,x:0,duration:.7,ease:'power3.out',scrollTrigger:{trigger:el,start:'top 85%',toggleActions:'play none none none'},delay:i*.15}));
+  ScrollTrigger.create({trigger:'#certs-grid',start:'top 85%',onEnter:()=>gsap.utils.toArray('.cert-card').forEach((c,i)=>gsap.to(c,{opacity:1,y:0,duration:.5,ease:'power3.out',delay:i*.07}))});
 }
 
-/* ===== SCROLL ANIMATIONS ===== */
-function initAnimations() {
-  gsap.utils.toArray('.reveal').forEach(el => {
-    gsap.fromTo(el,
-      { opacity: 0, y: 40 },
-      {
-        opacity: 1, y: 0, duration: 0.7, ease: 'power3.out',
-        scrollTrigger: { trigger: el, start: 'top 88%', toggleActions: 'play none none none' }
-      }
-    );
-  });
-
-  ScrollTrigger.create({
-    trigger: '#about',
-    start: 'top 60%',
-    onEnter: () => {
-      document.querySelectorAll('.skill-fill').forEach(bar => {
-        const level = bar.dataset.level;
-        gsap.to(bar, { width: level + '%', duration: 1.4, ease: 'power3.out', delay: 0.2 });
-      });
-    }
-  });
-
-  ScrollTrigger.create({
-    trigger: '#projects-grid',
-    start: 'top 85%',
-    onEnter: () => {
-      gsap.utils.toArray('.project-card').forEach((card, i) => {
-        gsap.to(card, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out', delay: i * 0.1 });
-      });
-    }
-  });
-
-  gsap.utils.toArray('.timeline-item').forEach((item, i) => {
-    gsap.to(item, {
-      opacity: 1, x: 0, duration: 0.7, ease: 'power3.out',
-      scrollTrigger: { trigger: item, start: 'top 85%', toggleActions: 'play none none none' },
-      delay: i * 0.15
-    });
-  });
-
-  ScrollTrigger.create({
-    trigger: '#certs-grid',
-    start: 'top 85%',
-    onEnter: () => {
-      gsap.utils.toArray('.cert-card').forEach((card, i) => {
-        gsap.to(card, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out', delay: i * 0.07 });
-      });
-    }
-  });
-}
-
-/* ===== START ===== */
 loadData();
