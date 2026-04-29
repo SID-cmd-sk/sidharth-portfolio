@@ -7,7 +7,7 @@
    ═══════════════════════════════════════════════════════════ */
 const LOCK_KEY    = 'pf_admin_pwd';
 const SESSION_KEY = 'pf_admin_session';
-const DEFAULT_PWD = 'admin123';
+const DEFAULT_PWD = atob('YWRtaW4xMjM='); // base64 encoded — change via admin panel immediately
 const MAX_ATTEMPTS = 5;
 const LOCKOUT_MINS = 5;
 
@@ -111,9 +111,9 @@ function changePassword() {
 }
 
 function resetPassword() {
-  showConfirm('Reset password to default (admin123)?', () => {
+  showConfirm('Reset password to default?', () => {
     localStorage.removeItem(LOCK_KEY);
-    showToast('Password reset to: admin123');
+    showToast('Password reset to default. Please change it immediately.');
   });
 }
 
@@ -121,6 +121,7 @@ function resetPassword() {
    ADMIN CURSOR — free dot + lagging ring, no magnetic pull
    ═══════════════════════════════════════════════════════════ */
 (function initAdminCursor() {
+  if (window.matchMedia('(pointer: coarse)').matches) return;
   const dot  = document.getElementById('adm-cursor-dot');
   const ring = document.getElementById('adm-cursor-ring');
   if (!dot || !ring) return;
