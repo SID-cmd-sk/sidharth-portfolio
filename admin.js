@@ -515,18 +515,38 @@ function renderCertsList() {
     <div style="display:flex;justify-content:space-between;align-items:center;padding:.7rem 0;border-bottom:1px solid rgba(255,255,255,.05);">
       <div>
         <div style="color:var(--text);font-size:.85rem;">${c.name}</div>
-        <div style="color:var(--text-dim);font-size:.72rem;">${c.issuer} · <span style="color:var(--neon);">${c.level}</span></div>
+        <div style="color:var(--text-dim);font-size:.72rem;">${c.issuer} · <span style="color:var(--neon);">${c.level}</span>${c.image?' · 📎 image':''}</div>
       </div>
       <button class="btn btn-danger btn-sm" onclick="deleteItem('certifications',${i})">Remove</button>
     </div>`).join('');
 }
 
+async function handleCertImageUpload(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    document.getElementById('cert-image').value = await fileToDataURL(file);
+    showToast(`✅ Certificate image uploaded: ${file.name}`);
+  } catch {
+    showToast('Could not upload certificate image.');
+  }
+}
+
 function addCert() {
   const name = document.getElementById('cert-name').value.trim();
   if (!name) { showToast('Name required.'); return; }
-  DATA.certifications.push({ id:'c'+Date.now(), name, issuer: document.getElementById('cert-issuer').value.trim(), level: document.getElementById('cert-level').value });
+  DATA.certifications.push({
+    id:'c'+Date.now(),
+    name,
+    issuer: document.getElementById('cert-issuer').value.trim(),
+    level: document.getElementById('cert-level').value,
+    image: document.getElementById('cert-image').value.trim()
+  });
   saveToStorage(); renderCertsList(); renderDashboard();
   document.getElementById('cert-name').value = ''; document.getElementById('cert-issuer').value = '';
+  document.getElementById('cert-image').value = '';
+  const certFile = document.getElementById('cert-image-file');
+  if (certFile) certFile.value = '';
   showToast('✅ Certification added!');
 }
 

@@ -390,6 +390,8 @@
             <div class="form-group"><label>Level</label>
               <select id="cert-level"><option>Professional</option><option>Associate</option><option>Specialist</option></select>
             </div>
+            <div class="form-group full"><label>Certificate Image URL (optional)</label><input type="text" id="cert-image" placeholder="Paste URL or use file picker below" /></div>
+            <div class="form-group full"><label>Upload Certificate Image (optional)</label><input type="file" id="cert-image-file" accept="image/*" onchange="handleCertImageUpload(event)" /></div>
           </div>
           <div class="form-actions"><button class="btn btn-primary" onclick="addCert()">Add</button></div>
         </div>
