@@ -301,7 +301,7 @@
           <div class="media-section">
             <div class="media-section-title">📷 Photos (optional)</div>
             <div id="photos-container"></div>
-            <button class="btn btn-ghost btn-sm" onclick="addPhotoRow()">+ Add Photo URL</button>
+            <button class="btn btn-ghost btn-sm" onclick="addPhotoRow()">+ Add Photo</button>
 
             <div class="media-section-title" style="margin-top:1.2rem;">▶ Videos (optional)</div>
             <div id="videos-container"></div>
@@ -310,7 +310,7 @@
             <div class="media-section-title" style="margin-top:1.2rem;">🔷 3D Model (optional — STL / OBJ / GLTF / GLB)</div>
             <div class="media-row" style="flex-direction:column;align-items:flex-start;gap:.6rem;">
               <div style="display:flex;gap:.6rem;width:100%;flex-wrap:wrap;">
-                <input type="text" id="model-url" placeholder="URL to .stl / .obj / .gltf / .glb file" style="flex:1;" />
+                <input type="text" id="model-url" placeholder="URL or uploaded file data will appear here" style="flex:1;" />
                 <select id="model-format" style="width:110px;">
                   <option value="">Auto-detect</option>
                   <option value="stl">STL</option>
@@ -319,8 +319,11 @@
                   <option value="glb">GLB</option>
                 </select>
               </div>
+              <div style="display:flex;gap:.6rem;width:100%;flex-wrap:wrap;">
+                <input type="file" id="model-file" accept=".stl,.obj,.gltf,.glb,model/gltf-binary,model/gltf+json" onchange="handle3DFileUpload(event)" />
+              </div>
               <p style="font-size:.72rem;color:var(--text-dim);line-height:1.6;">
-                ℹ️ Host your 3D file on GitHub, Google Drive (direct link), or any public URL. Visitors can rotate/zoom but <strong style="color:var(--neon);">cannot download</strong>. STL and OBJ are parsed client-side; GLTF/GLB requires CDN-hosted files.
+                ℹ️ You can paste a public URL or upload directly from your device. Uploaded files are saved in browser storage.
               </p>
             </div>
           </div>
@@ -387,6 +390,8 @@
             <div class="form-group"><label>Level</label>
               <select id="cert-level"><option>Professional</option><option>Associate</option><option>Specialist</option></select>
             </div>
+            <div class="form-group full"><label>Certificate Image URL (optional)</label><input type="text" id="cert-image" placeholder="Paste URL or use file picker below" /></div>
+            <div class="form-group full"><label>Upload Certificate Image (optional)</label><input type="file" id="cert-image-file" accept="image/*" onchange="handleCertImageUpload(event)" /></div>
           </div>
           <div class="form-actions"><button class="btn btn-primary" onclick="addCert()">Add</button></div>
         </div>

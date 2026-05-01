@@ -449,32 +449,39 @@ function buildModalMedia(p) {
     return;
   }
 
-  const tabs = [];
-  if (hasPhoto) tabs.push({ id:'photos', label:`📷 Photos (${p.photos.length})` });
-  if (hasVideo) tabs.push({ id:'videos', label:`▶ Videos (${p.videos.length})` });
-  if (has3D)    tabs.push({ id:'3d',     label:'🔷 3D Model' });
+  const slides = [];
+  (p.photos || []).forEach(ph => slides.push({ kind:'photo', data:ph }));
+  (p.videos || []).forEach(v => slides.push({ kind:'video', data:v }));
+  if (p.model3d) slides.push({ kind:'3d', data:p.model3d });
 
   wrap.innerHTML = `
-    <div class="media-tabs">
-      ${tabs.map((t,i)=>`<button class="media-tab${i===0?' active':''}" data-tab="${t.id}">${t.label}</button>`).join('')}
+    <div id="media-slider-controls" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.8rem;">
+      <button class="media-tab" id="media-prev">← Prev</button>
+      <div id="media-counter" style="font-family:var(--font-mono);font-size:.72rem;color:var(--text-dim);"></div>
+      <button class="media-tab" id="media-next">Next →</button>
     </div>
-    <div class="media-panels">
-      ${hasPhoto ? `<div class="media-panel active" id="mpanel-photos">${buildPhotoGallery(p.photos)}</div>` : ''}
-      ${hasVideo ? `<div class="media-panel" id="mpanel-videos">${buildVideoGallery(p.videos)}</div>` : ''}
-      ${has3D ? `<div class="media-panel" id="mpanel-3d">
-        <div id="viewer3d-container" style="width:100%;height:360px;border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);position:relative;"></div>
-        <p style="font-size:.72rem;color:var(--text-dim);margin-top:.5rem;text-align:center;">🖱 Drag to rotate · Scroll to zoom · Right-drag to pan · Touch supported</p>
-      </div>` : ''}
-    </div>`;
-
-  // Safe event delegation for tabs
-  wrap.querySelector('.media-tabs')?.addEventListener('click', e => {
-    const btn = e.target.closest('.media-tab');
-    if (!btn) return;
-    switchTab(btn.dataset.tab);
-  });
-
-  if (tabs[0]?.id === '3d') setTimeout(() => init3DViewer(p.model3d), 80);
+    <div id="media-slide-wrap"></div>`;
+  let idx = 0;
+  const counter = wrap.querySelector('#media-counter');
+  const show = () => {
+    const s = slides[idx];
+    counter.textContent = `${idx + 1} / ${slides.length} · ${s.kind.toUpperCase()}`;
+    const slideWrap = wrap.querySelector('#media-slide-wrap');
+    if (s.kind === 'photo') {
+      slideWrap.innerHTML = `<div class="photo-main"><img src="${esc(s.data.url)}" style="width:100%;height:360px;object-fit:contain;border-radius:8px;background:#070b14;" loading="lazy"/><div class="photo-caption">${esc(s.data.caption||'')}</div></div>`;
+    } else if (s.kind === 'video') {
+      slideWrap.innerHTML = s.data.type === 'youtube'
+        ? `<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${esc(s.data.id)}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${esc(s.data.id)}" style="position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:0;" allow="autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe></div>`
+        : `<video controls autoplay muted loop playsinline preload="metadata" style="width:100%;max-height:420px;border-radius:8px;background:#070b14;"><source src="${esc(s.data.url)}" /></video>`;
+    } else {
+      slideWrap.innerHTML = `<div id="viewer3d-container" style="width:100%;height:380px;border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);position:relative;"></div>
+      <p style="font-size:.72rem;color:var(--text-dim);margin-top:.5rem;text-align:center;">3D model viewer</p>`;
+      setTimeout(() => init3DViewer(s.data), 60);
+    }
+  };
+  wrap.querySelector('#media-prev').onclick = () => { idx = (idx - 1 + slides.length) % slides.length; show(); };
+  wrap.querySelector('#media-next').onclick = () => { idx = (idx + 1) % slides.length; show(); };
+  show();
 }
 
 function switchTab(id) {
@@ -708,7 +715,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 /* ─── CERTIFICATIONS ─────────────────────────────────────── */
 function renderCertifications() {
   document.getElementById('certs-grid').innerHTML = DATA.certifications.map(c => `
-    <div class="cert-card">
+    <div class="cert-card" ${c.image ? `onclick="openCertImage('${esc(c.image)}','${esc(c.name)}')"` : ''} style="${c.image ? 'cursor:pointer;' : ''}">
       <div class="cert-icon">🏆</div>
       <div class="cert-info">
         <div class="cert-level ${c.level==='Professional'?'pro':c.level==='Specialist'?'spec':'assoc'}">${esc(c.level)}</div>
@@ -716,6 +723,18 @@ function renderCertifications() {
         <div class="cert-issuer">${esc(c.issuer)}</div>
       </div>
     </div>`).join('');
+}
+
+function openCertImage(url, name) {
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-cat').textContent = 'Certification';
+  document.getElementById('modal-title').textContent = name;
+  document.getElementById('modal-tools').innerHTML = '';
+  document.getElementById('modal-desc').textContent = '';
+  document.getElementById('modal-highlights').innerHTML = '';
+  document.getElementById('modal-media').innerHTML = `<img src="${url}" alt="${name}" style="width:100%;max-height:70vh;object-fit:contain;background:#070b14;border-radius:10px;border:1px solid var(--border);" />`;
+  overlay.classList.add('active');
+  document.body.style.overflow = 'hidden';
 }
 
 /* ─── CONTACT ────────────────────────────────────────────── */
