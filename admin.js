@@ -251,6 +251,14 @@ function renderProjectsTable() {
 
 /* Photo rows */
 let photoRows = [], videoRows = [];
+function fileToDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error('Failed to read file.'));
+    reader.readAsDataURL(file);
+  });
+}
 
 function addPhotoRow(url='', caption='') {
   const id = Date.now() + Math.random();
@@ -258,8 +266,9 @@ function addPhotoRow(url='', caption='') {
   const div = document.createElement('div');
   div.className = 'media-row'; div.id = `photo-row-${id}`;
   div.innerHTML = `
-    <span class="media-row-label">URL</span>
-    <input type="text" value="${url}" placeholder="https://... (image URL)" class="photo-url-${id}" style="flex:2;" />
+    <span class="media-row-label">Image</span>
+    <input type="text" value="${url}" placeholder="Paste URL or use file picker" class="photo-url-${id}" style="flex:2;" />
+    <input type="file" accept="image/*" onchange="handlePhotoFileUpload(event, ${id})" style="flex:1;" />
     <input type="text" value="${caption}" placeholder="Caption (optional)" class="photo-cap-${id}" style="flex:1;" />
     <button class="btn btn-danger btn-sm" onclick="removeRow('photo-row-${id}')">✕</button>`;
   document.getElementById('photos-container').appendChild(div);
@@ -277,9 +286,37 @@ function addVideoRow(type='youtube', id='', url='', caption='') {
       <option value="direct"${type==='direct'?' selected':''}>Direct URL</option>
     </select>
     <input type="text" value="${type==='youtube'?id:url}" placeholder="${type==='youtube'?'YouTube video ID (e.g. dQw4w9WgXcQ)':'Direct video URL (.mp4)'}" class="vval-${rid}" style="flex:2;" />
+    <input type="file" accept="video/*" onchange="handleVideoFileUpload(event, ${rid})" style="flex:1;" />
     <input type="text" value="${caption}" placeholder="Caption" class="vcap-${rid}" style="flex:1;" />
     <button class="btn btn-danger btn-sm" onclick="removeRow('video-row-${rid}')">✕</button>`;
   document.getElementById('videos-container').appendChild(div);
+}
+
+async function handlePhotoFileUpload(e, rid) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const urlEl = document.querySelector(`.photo-url-${rid}`);
+  try {
+    urlEl.value = await fileToDataURL(file);
+    showToast(`✅ Photo uploaded: ${file.name}`);
+  } catch {
+    showToast('Could not upload photo file.');
+  }
+}
+
+async function handleVideoFileUpload(e, rid) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  const typeEl = document.querySelector(`.vtype-${rid}`);
+  const valEl = document.querySelector(`.vval-${rid}`);
+  if (typeEl) typeEl.value = 'direct';
+  toggleVideoFields(rid);
+  try {
+    valEl.value = await fileToDataURL(file);
+    showToast(`✅ Video uploaded: ${file.name}`);
+  } catch {
+    showToast('Could not upload video file.');
+  }
 }
 
 function toggleVideoFields(rid) {
@@ -330,6 +367,20 @@ function guessFormat(url) {
   const ext = url.split('.').pop().toLowerCase().split('?')[0];
   return ['stl','obj','gltf','glb'].includes(ext) ? ext : 'stl';
 }
+async function handle3DFileUpload(e) {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    const dataUrl = await fileToDataURL(file);
+    document.getElementById('model-url').value = dataUrl;
+    const dot = file.name.lastIndexOf('.');
+    const ext = dot !== -1 ? file.name.slice(dot + 1).toLowerCase() : '';
+    if (['stl','obj','gltf','glb'].includes(ext)) document.getElementById('model-format').value = ext;
+    showToast(`✅ 3D file uploaded: ${file.name}`);
+  } catch {
+    showToast('Could not upload 3D file.');
+  }
+}
 
 function saveProject() {
   const title = document.getElementById('proj-title').value.trim();
@@ -369,6 +420,8 @@ function saveProject() {
 function clearProjectForm() {
   document.getElementById('proj-edit-id').value = '';
   ['proj-title','proj-desc','proj-tools','proj-highlights','model-url'].forEach(id => document.getElementById(id).value = '');
+  const modelFileEl = document.getElementById('model-file');
+  if (modelFileEl) modelFileEl.value = '';
   document.getElementById('proj-cat').value     = 'CAD';
   document.getElementById('proj-featured').value = 'false';
   document.getElementById('model-format').value  = '';
