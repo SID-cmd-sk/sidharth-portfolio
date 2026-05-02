@@ -1042,6 +1042,24 @@
     .project-card.tilt-active {
       will-change: transform;
     }
+
+    /* ===== HERO VISUAL float + glow ===== */
+    .hero-ring-container {
+      animation: floatGlow 4s ease-in-out infinite;
+    }
+    @keyframes floatGlow {
+      0%,100% { transform: translateY(0px); filter: drop-shadow(0 0 20px rgba(0,200,255,0.3)); }
+      50%      { transform: translateY(-12px); filter: drop-shadow(0 0 35px rgba(0,200,255,0.5)); }
+    }
+
+    /* ===== CERT CARD image indicator ===== */
+    .cert-card.has-image {
+      border-left: 2px solid rgba(0,200,255,0.4);
+    }
+    .cert-card.has-image:hover {
+      border-left-color: var(--neon);
+      box-shadow: -4px 0 15px rgba(0,200,255,0.2), var(--card-shadow-hover);
+    }
     .media-tabs { display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; }
     .media-tab {
       font-family: var(--font-mono);
@@ -1172,9 +1190,9 @@
             <a class="btn-ghost" href="#contact">Get In Touch</a>
           </div>
           <div class="hero-stats" id="hero-stats">
-            <div class="stat"><div class="stat-num">10+</div><div class="stat-label">Certifications</div></div>
-            <div class="stat"><div class="stat-num">2+</div><div class="stat-label">Years Exp</div></div>
-            <div class="stat"><div class="stat-num">5+</div><div class="stat-label">Projects</div></div>
+            <div class="stat"><div class="stat-num">0+</div><div class="stat-label">Certifications</div></div>
+            <div class="stat"><div class="stat-num">0+</div><div class="stat-label">Years Exp</div></div>
+            <div class="stat"><div class="stat-num">0+</div><div class="stat-label">Projects</div></div>
           </div>
         </div>
         <div class="hero-visual" id="hero-visual">

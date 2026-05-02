@@ -258,8 +258,9 @@ function renderHero() {
   const certCount = DATA.certifications?.length || 10;
   const projCount = DATA.projects?.length || 5;
   const nums = document.querySelectorAll('.stat-num');
-  if (nums[0]) nums[0].textContent = certCount + '+';
-  if (nums[2]) nums[2].textContent = projCount + '+';
+  // Initialize stats at 0 — animateCounter will count up during reveal animation
+  if (nums[0]) nums[0].textContent = '0+';
+  if (nums[2]) nums[2].textContent = '0+';
 }
 function triggerHeroAnimation() {
   gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'], { y: 30 });
@@ -271,8 +272,8 @@ function triggerHeroAnimation() {
     .to('#hero-desc',   { opacity:1, y:0, duration:.6, ease:'power3.out' }, .52)
     .to('#hero-btns',   { opacity:1, y:0, duration:.6, ease:'power3.out' }, .62)
     .to('#hero-stats',  { opacity:1, y:0, duration:.6, ease:'power3.out',
-      onComplete: () => {
-        // Animate stat counters
+      onStart: () => {
+        // Animate counters simultaneously with the stats reveal
         const nums = document.querySelectorAll('.stat-num');
         const targets = [DATA.certifications?.length || 10, 2, DATA.projects?.length || 5];
         nums.forEach((el, i) => { if (targets[i]) animateCounter(el, targets[i]); });
@@ -924,12 +925,13 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 /* ─── CERTIFICATIONS ─────────────────────────────────────── */
 function renderCertifications() {
   document.getElementById('certs-grid').innerHTML = DATA.certifications.map(c => `
-    <div class="cert-card" ${c.image ? `onclick="openCertImage('${esc(mediaUrl(c.image))}','${esc(c.name)}')"` : ''} style="${c.image ? 'cursor:pointer;' : ''}">
+    <div class="cert-card${c.image ? ' has-image' : ''}" ${c.image ? `onclick="openCertImage('${esc(mediaUrl(c.image))}','${esc(c.name)}')"` : ''} style="${c.image ? 'cursor:pointer;' : ''}">
       <div class="cert-icon">🏆</div>
       <div class="cert-info">
         <div class="cert-level ${c.level==='Professional'?'pro':c.level==='Specialist'?'spec':'assoc'}">${esc(c.level)}</div>
         <div class="cert-name">${esc(c.name)}</div>
         <div class="cert-issuer">${esc(c.issuer)}</div>
+        ${c.image ? '<div style="font-size:.65rem;color:var(--neon);opacity:.7;margin-top:.3rem;letter-spacing:1px;">CLICK TO VIEW</div>' : ''}
       </div>
     </div>`).join('');
 }
