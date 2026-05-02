@@ -11,6 +11,12 @@ function esc(str) {
     .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+function mediaUrl(url) {
+  if (!url) return '';
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith('/') || url.startsWith('./') || url.startsWith('../')) return url;
+  return `data/media/${url}`;
+}
+
 /* ─── DATA LOAD ──────────────────────────────────────────── */
 async function loadData() {
   try {
@@ -362,7 +368,7 @@ function renderProjects() {
     ].filter(Boolean).join('');
 
     const thumb = hasPhoto
-      ? `<img src="${esc(p.photos[0].url)}" alt="${esc(p.title)}" style="width:100%;height:100%;object-fit:cover;opacity:.7;" loading="lazy"/>`
+      ? `<img src="${esc(mediaUrl(p.photos[0].url))}" alt="${esc(p.title)}" style="width:100%;height:100%;object-fit:cover;opacity:.7;" loading="lazy"/>`
       : `<div class="project-thumb-icon">${CAT_ICON[p.category] || '🔧'}</div>`;
 
     // Fixed: no orphan ellipsis on short descriptions
@@ -450,8 +456,8 @@ function buildModalMedia(p) {
   }
 
   const slides = [];
-  (p.photos || []).forEach(ph => slides.push({ kind:'photo', data:ph }));
   (p.videos || []).forEach(v => slides.push({ kind:'video', data:v }));
+  (p.photos || []).forEach(ph => slides.push({ kind:'photo', data:ph }));
   if (p.model3d) slides.push({ kind:'3d', data:p.model3d });
 
   wrap.innerHTML = `
@@ -468,13 +474,13 @@ function buildModalMedia(p) {
     counter.textContent = `${idx + 1} / ${slides.length} · ${s.kind.toUpperCase()}`;
     const slideWrap = wrap.querySelector('#media-slide-wrap');
     if (s.kind === 'photo') {
-      slideWrap.innerHTML = `<div class="photo-main"><img src="${esc(s.data.url)}" style="width:100%;height:360px;object-fit:contain;border-radius:8px;background:#070b14;" loading="lazy"/><div class="photo-caption">${esc(s.data.caption||'')}</div></div>`;
+      slideWrap.innerHTML = `<div class="photo-main"><img src="${esc(mediaUrl(s.data.url))}" style="width:100%;height:360px;object-fit:contain;border-radius:8px;background:#070b14;" loading="lazy"/><div class="photo-caption">${esc(s.data.caption||'')}</div></div>`;
     } else if (s.kind === 'video') {
       slideWrap.innerHTML = s.data.type === 'youtube'
         ? `<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${esc(s.data.id)}?autoplay=1&mute=1&playsinline=1&loop=1&playlist=${esc(s.data.id)}" style="position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:0;" allow="autoplay; encrypted-media" allowfullscreen loading="lazy"></iframe></div>`
-        : `<video controls autoplay muted loop playsinline preload="metadata" style="width:100%;max-height:420px;border-radius:8px;background:#070b14;"><source src="${esc(s.data.url)}" /></video>`;
+        : `<video controls autoplay muted loop playsinline preload="metadata" style="width:100%;max-height:420px;border-radius:8px;background:#070b14;"><source src="${esc(mediaUrl(s.data.url))}" /></video>`;
     } else {
-      slideWrap.innerHTML = `<div id="viewer3d-container" style="width:100%;height:380px;border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);position:relative;"></div>
+      slideWrap.innerHTML = `<div id="viewer3d-container" style="width:100%;height:460px;border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);position:relative;"></div>
       <p style="font-size:.72rem;color:var(--text-dim);margin-top:.5rem;text-align:center;">3D model viewer</p>`;
       setTimeout(() => init3DViewer(s.data), 60);
     }
@@ -603,7 +609,7 @@ function setupScene(container, modelData) {
   }, { passive:false });
 
   const fmt = (modelData?.format||'').toLowerCase();
-  const url = modelData?.url||'';
+  const url = mediaUrl(modelData?.url||'');
   if      (url.match(/\.stl$/i)||fmt==='stl')              loadSTL(scene,url,THREE,m=>centerModel(m,camera));
   else if (url.match(/\.obj$/i)||fmt==='obj')              loadOBJ(scene,url,THREE,m=>centerModel(m,camera));
   else if (url.match(/\.(gltf|glb)$/i)||fmt==='gltf'||fmt==='glb') loadGLTF(scene,url,THREE,m=>centerModel(m.scene||m,camera));
@@ -646,7 +652,9 @@ function centerModel(obj, camera) {
   const center = box.getCenter(new THREE.Vector3());
   const size   = box.getSize(new THREE.Vector3());
   obj.position.sub(center);
-  camera.position.z = Math.max(size.x, size.y, size.z) * 2.2;
+  const maxSize = Math.max(size.x, size.y, size.z) || 1;
+  camera.position.z = maxSize * 1.8;
+  camera.position.y = maxSize * 0.18;
 }
 
 function loadSTL(scene,url,THREE,cb){
@@ -715,7 +723,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 /* ─── CERTIFICATIONS ─────────────────────────────────────── */
 function renderCertifications() {
   document.getElementById('certs-grid').innerHTML = DATA.certifications.map(c => `
-    <div class="cert-card" ${c.image ? `onclick="openCertImage('${esc(c.image)}','${esc(c.name)}')"` : ''} style="${c.image ? 'cursor:pointer;' : ''}">
+    <div class="cert-card" ${c.image ? `onclick="openCertImage('${esc(mediaUrl(c.image))}','${esc(c.name)}')"` : ''} style="${c.image ? 'cursor:pointer;' : ''}">
       <div class="cert-icon">🏆</div>
       <div class="cert-info">
         <div class="cert-level ${c.level==='Professional'?'pro':c.level==='Specialist'?'spec':'assoc'}">${esc(c.level)}</div>
