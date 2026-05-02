@@ -242,6 +242,7 @@
           <button onclick="lockAdmin()">🔒 Lock Panel</button>
           <button onclick="downloadJSON()" style="color:var(--neon3);">⬇ Download JSON</button>
           <button onclick="saveToStorage()" style="color:var(--neon);">💾 Save Changes</button>
+          <a href="data/media/README.md" target="_blank" style="color:var(--neon2);font-size:.7rem;">📁 Media Storage Guide</a>
         </div>
       </div>
     </aside>
@@ -310,7 +311,7 @@
             <div class="media-section-title" style="margin-top:1.2rem;">🔷 3D Model (optional — STL / OBJ / GLTF / GLB)</div>
             <div class="media-row" style="flex-direction:column;align-items:flex-start;gap:.6rem;">
               <div style="display:flex;gap:.6rem;width:100%;flex-wrap:wrap;">
-                <input type="text" id="model-url" placeholder="URL or uploaded file data will appear here" style="flex:1;" />
+                <input type="text" id="model-url" placeholder="URL or file path (e.g. models/bracket.stl)" style="flex:1;" />
                 <select id="model-format" style="width:110px;">
                   <option value="">Auto-detect</option>
                   <option value="stl">STL</option>
@@ -322,8 +323,9 @@
               <div style="display:flex;gap:.6rem;width:100%;flex-wrap:wrap;">
                 <input type="file" id="model-file" accept=".stl,.obj,.gltf,.glb,model/gltf-binary,model/gltf+json" onchange="handle3DFileUpload(event)" />
               </div>
-              <p style="font-size:.72rem;color:var(--text-dim);line-height:1.6;">
-                ℹ️ You can paste a public URL or upload directly from your device. Uploaded files are saved in browser storage.
+              <p style="font-size:.72rem;color:var(--text-dim);line-height:1.7;background:rgba(123,47,255,.06);border:1px solid rgba(123,47,255,.2);border-radius:6px;padding:.7rem;">
+                <strong style="color:var(--neon2);">SolidWorks users:</strong> Export your part via <em>File → Save As → STL</em> (Binary format, recommended) or <em>OBJ</em>. Native .sldprt/.sldasm files are not supported in browser.<br/>
+                Max file size: 10MB. Place large files in <code style="color:var(--neon);">data/media/models/</code> folder and paste the path.
               </p>
             </div>
           </div>

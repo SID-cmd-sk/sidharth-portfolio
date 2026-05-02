@@ -295,6 +295,10 @@ function addVideoRow(type='youtube', id='', url='', caption='') {
 async function handlePhotoFileUpload(e, rid) {
   const file = e.target.files?.[0];
   if (!file) return;
+  if (file.size > 3 * 1024 * 1024) {
+    showToast('⚠️ Photo too large (max 3MB). Use a URL or compress the image.');
+    e.target.value = ''; return;
+  }
   const urlEl = document.querySelector(`.photo-url-${rid}`);
   try {
     urlEl.value = await fileToDataURL(file);
@@ -307,6 +311,10 @@ async function handlePhotoFileUpload(e, rid) {
 async function handleVideoFileUpload(e, rid) {
   const file = e.target.files?.[0];
   if (!file) return;
+  if (file.size > 20 * 1024 * 1024) {
+    showToast('⚠️ Video too large for browser storage (max 20MB). Upload to YouTube and use the YouTube ID instead.');
+    e.target.value = ''; return;
+  }
   const typeEl = document.querySelector(`.vtype-${rid}`);
   const valEl = document.querySelector(`.vval-${rid}`);
   if (typeEl) typeEl.value = 'direct';
@@ -370,13 +378,21 @@ function guessFormat(url) {
 async function handle3DFileUpload(e) {
   const file = e.target.files?.[0];
   if (!file) return;
+  if (file.size > 10 * 1024 * 1024) {
+    showToast('⚠️ 3D file too large (max 10MB). Reduce polygon count or use a URL instead.');
+    e.target.value = ''; return;
+  }
   try {
     const dataUrl = await fileToDataURL(file);
     document.getElementById('model-url').value = dataUrl;
     const dot = file.name.lastIndexOf('.');
     const ext = dot !== -1 ? file.name.slice(dot + 1).toLowerCase() : '';
-    if (['stl','obj','gltf','glb'].includes(ext)) document.getElementById('model-format').value = ext;
-    showToast(`✅ 3D file uploaded: ${file.name}`);
+    if (['stl','obj','gltf','glb'].includes(ext)) {
+      document.getElementById('model-format').value = ext;
+      showToast(`✅ 3D file uploaded (${ext.toUpperCase()}): ${file.name}`);
+    } else {
+      showToast(`⚠️ Format "${ext}" may not be supported. Try STL, OBJ, or GLTF/GLB.`);
+    }
   } catch {
     showToast('Could not upload 3D file.');
   }
@@ -524,8 +540,23 @@ function renderCertsList() {
 async function handleCertImageUpload(e) {
   const file = e.target.files?.[0];
   if (!file) return;
+  if (file.size > 3 * 1024 * 1024) {
+    showToast('⚠️ Image too large (max 3MB). Use a URL instead or compress the image first.');
+    e.target.value = '';
+    return;
+  }
   try {
-    document.getElementById('cert-image').value = await fileToDataURL(file);
+    const dataUrl = await fileToDataURL(file);
+    document.getElementById('cert-image').value = dataUrl;
+    // Show preview
+    let preview = document.getElementById('cert-img-preview');
+    if (!preview) {
+      preview = document.createElement('img');
+      preview.id = 'cert-img-preview';
+      preview.style = 'max-height:100px;border-radius:6px;border:1px solid var(--border);margin-top:.5rem;display:block;';
+      document.getElementById('cert-image').parentElement.appendChild(preview);
+    }
+    preview.src = dataUrl;
     showToast(`✅ Certificate image uploaded: ${file.name}`);
   } catch {
     showToast('Could not upload certificate image.');
