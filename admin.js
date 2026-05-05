@@ -700,57 +700,22 @@ function renderCertsList() {
 async function handleCertImageUpload(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-
-  // Size guard: 10 MB for images
-  if (file.size > 10 * 1024 * 1024) {
-    showToast(`⚠️ Image too large (${(file.size/1048576).toFixed(1)} MB). Max is 10 MB.`);
-    e.target.value = ''; return;
-  }
-
-  // Progress bar
-  const anchor = document.getElementById('cert-image-file')?.closest('.form-group') || document.body;
-  let progBar = document.getElementById('cert-upload-prog');
-  if (!progBar) {
-    progBar = document.createElement('div');
-    progBar.id = 'cert-upload-prog';
-    progBar.style.cssText = 'margin-top:7px;height:5px;border-radius:3px;background:rgba(255,255,255,0.07);overflow:hidden;border:1px solid var(--border,#1e2a40)';
-    progBar.innerHTML = '<div id="cert-upload-fill" style="height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,#00f0ff,#7c5cfc);transition:width 0.2s ease;"></div>';
-    anchor.appendChild(progBar);
-  }
-  const fill = document.getElementById('cert-upload-fill');
-  if (fill) fill.style.width = '8%';
-
-  showToast('⏳ Uploading certificate image… 0%');
+  showToast('⏳ Uploading certificate image…');
   try {
-    const fileUrl = await uploadToCloudinary(file, {
-      onProgress: pct => {
-        showToast(`⏳ Uploading… ${pct}%`);
-        if (fill) fill.style.width = pct + '%';
-      }
-    });
-
-    if (fill) fill.style.width = '100%';
-    setTimeout(() => progBar?.remove(), 1200);
-
+    const fileUrl = await uploadToCloudinary(file);
     document.getElementById('cert-image').value = fileUrl;
-
-    // Show preview — clickable lightbox preview
+    // Show preview
     let preview = document.getElementById('cert-img-preview');
     if (!preview) {
       preview = document.createElement('img');
       preview.id = 'cert-img-preview';
-      preview.style.cssText = 'max-height:110px;border-radius:6px;border:1px solid var(--border);margin-top:.6rem;display:block;cursor:pointer;transition:opacity .2s;';
-      preview.title = 'Click to preview full size';
-      preview.onmouseover = () => preview.style.opacity = '.8';
-      preview.onmouseout  = () => preview.style.opacity = '1';
-      preview.onclick = () => window.open(preview.src, '_blank');
+      preview.style = 'max-height:100px;border-radius:6px;border:1px solid var(--border);margin-top:.5rem;display:block;';
       document.getElementById('cert-image').parentElement.appendChild(preview);
     }
     preview.src = fileUrl;
     showToast(`✅ Certificate image uploaded: ${file.name}`);
   } catch (err) {
     console.error('Cert image upload failed:', err);
-    progBar?.remove();
     showToast('❌ Could not upload image. Try again or paste a URL directly.');
     e.target.value = '';
   }

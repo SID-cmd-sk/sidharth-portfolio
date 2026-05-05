@@ -1006,72 +1006,17 @@ function renderCertifications() {
     </div>`).join('');
 }
 
-/* ─── CERT LIGHTBOX ──────────────────────────────────────── */
-let _certZoom = 1;
-
 function openCertImage(url, name) {
-  const lb   = document.getElementById('cert-lightbox');
-  const img  = document.getElementById('cert-lb-img');
-  const lbl  = document.getElementById('cert-lb-name');
-  const wrap = document.getElementById('cert-lb-wrap');
-  if (!lb || !img) return;
-
-  _certZoom = 1;
-  img.style.transform = 'scale(1)';
-  img.src = url;
-  img.alt = name;
-  lbl.textContent = name;
-  lb.style.display = 'flex';
+  const overlay = document.getElementById('modal-overlay');
+  document.getElementById('modal-cat').textContent = 'Certification';
+  document.getElementById('modal-title').textContent = name;
+  document.getElementById('modal-tools').innerHTML = '';
+  document.getElementById('modal-desc').textContent = '';
+  document.getElementById('modal-highlights').innerHTML = '';
+  document.getElementById('modal-media').innerHTML = `<img src="${url}" alt="${name}" style="width:100%;max-height:70vh;object-fit:contain;background:#070b14;border-radius:10px;border:1px solid var(--border);" />`;
+  overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
-
-  // Scroll-to-zoom
-  wrap._certWheelHandler = (e) => {
-    e.preventDefault();
-    _certZoom = Math.max(1, Math.min(4, _certZoom - e.deltaY * 0.002));
-    img.style.transform = `scale(${_certZoom})`;
-    img.style.cursor = _certZoom > 1 ? 'zoom-out' : 'zoom-in';
-    wrap.style.cursor = _certZoom > 1 ? 'zoom-out' : 'zoom-in';
-  };
-  wrap.addEventListener('wheel', wrap._certWheelHandler, { passive: false });
-
-  // Click image to toggle zoom 1x / 2x
-  img._certClickHandler = () => {
-    _certZoom = _certZoom > 1 ? 1 : 2;
-    img.style.transform = `scale(${_certZoom})`;
-    img.style.cursor = _certZoom > 1 ? 'zoom-out' : 'zoom-in';
-  };
-  img.addEventListener('click', img._certClickHandler);
-
-  // ESC to close
-  lb._certKeyHandler = (e) => { if (e.key === 'Escape') closeCertLightbox(); };
-  document.addEventListener('keydown', lb._certKeyHandler);
 }
-
-function closeCertLightbox(e) {
-  // Only close if clicking the dark backdrop (not the image/wrap)
-  if (e && e.target !== document.getElementById('cert-lightbox')) return;
-  _closeCertLightbox();
-}
-
-function _closeCertLightbox() {
-  const lb   = document.getElementById('cert-lightbox');
-  const img  = document.getElementById('cert-lb-img');
-  const wrap = document.getElementById('cert-lb-wrap');
-  if (!lb) return;
-  lb.style.display = 'none';
-  document.body.style.overflow = '';
-  // Clean up listeners
-  if (wrap?._certWheelHandler) { wrap.removeEventListener('wheel', wrap._certWheelHandler); delete wrap._certWheelHandler; }
-  if (img?._certClickHandler)  { img.removeEventListener('click', img._certClickHandler); delete img._certClickHandler; }
-  if (lb?._certKeyHandler)     { document.removeEventListener('keydown', lb._certKeyHandler); delete lb._certKeyHandler; }
-  img.src = '';
-}
-
-// Make the close button work (it calls this directly)
-window.closeCertLightbox = function(e) {
-  if (e && e.target !== document.getElementById('cert-lightbox')) return;
-  _closeCertLightbox();
-};
 
 /* ─── CONTACT ────────────────────────────────────────────── */
 function renderContact() {
