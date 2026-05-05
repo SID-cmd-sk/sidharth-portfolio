@@ -171,11 +171,89 @@ function resetPassword() {
    DATA
    ═══════════════════════════════════════════════════════════ */
 let DATA = {};
+const FIREBASE_DOC = 'portfolio';
+let firebaseReady = null;
+let FB = {};
+
+async function initFirebase() {
+  if (firebaseReady) return firebaseReady;
+  const cfg = window.FIREBASE_CONFIG;
+  if (!cfg || !cfg.apiKey || cfg.apiKey.startsWith('REPLACE_')) {
+    throw new Error('Firebase not configured. Fill in firebase-config.js first.');
+  }
+  firebaseReady = (async () => {
+    const [{ initializeApp }, fs] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
+    ]);
+    const app = initializeApp(window.FIREBASE_CONFIG);
+    FB.db = fs.getFirestore(app);
+    FB.fs = fs;
+  })();
+  firebaseReady.catch(() => { firebaseReady = null; });
+  return firebaseReady;
+}
+/* ─── CLOUDINARY UPLOAD ──────────────────────────────────── */
+const CLOUDINARY_URL    = 'https://api.cloudinary.com/v1_1/dpmnce5h6/upload';
+const CLOUDINARY_PRESET = 'portfolio_upload';
+// 3D model extensions that Cloudinary cannot render — keep as manual URL input
+const MODEL_EXTS = ['stl', 'obj', 'gltf', 'glb'];
+
+async function uploadToCloudinary(file, { onProgress, resourceType = 'auto' } = {}) {
+  return new Promise((resolve, reject) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_PRESET);
+    if (resourceType !== 'auto') formData.append('resource_type', resourceType);
+
+    const xhr = new XMLHttpRequest();
+    const endpoint = resourceType === 'raw'
+      ? `https://api.cloudinary.com/v1_1/dpmnce5h6/raw/upload`
+      : CLOUDINARY_URL;
+
+    xhr.open('POST', endpoint);
+
+    if (onProgress) {
+      xhr.upload.addEventListener('progress', e => {
+        if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+      });
+    }
+
+    xhr.onload = () => {
+      try {
+        const data = JSON.parse(xhr.responseText);
+        if (xhr.status >= 200 && xhr.status < 300 && !data.error) {
+          resolve(data.secure_url);
+        } else {
+          reject(new Error(data.error?.message || 'Upload failed (' + xhr.status + ')'));
+        }
+      } catch(e) { reject(new Error('Server response parse error')); }
+    };
+    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.send(formData);
+  });
+}
+async function addMediaDoc({ type, url, name }) {
+  await initFirebase();
+  await FB.fs.addDoc(FB.fs.collection(FB.db, 'media'), {
+    type, url, name,
+    created: FB.fs.serverTimestamp()
+  });
+}
+function normalizeYouTube(input) {
+  const val = (input || '').trim();
+  const m = val.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{6,})/i);
+  return m ? m[1] : val;
+}
+function isYouTubeLink(value) {
+  return /youtu\.be|youtube\.com\/watch|youtube\.com\/embed/i.test(value || '');
+}
 
 async function loadData() {
   try {
-    const saved = localStorage.getItem('portfolio_data');
-    DATA = saved ? JSON.parse(saved) : await (await fetch('data/portfolio.json')).json();
+    await initFirebase();
+    const snap = await FB.fs.getDoc(FB.fs.doc(FB.db, 'app', FIREBASE_DOC));
+    DATA = snap.exists() ? snap.data() : await (await fetch('data/portfolio.json')).json();
   } catch {
     try { DATA = await (await fetch('data/portfolio.json')).json(); } catch { DATA = { meta:{}, projects:[], skills:[], experience:[], certifications:[], about:'' }; }
   }
@@ -251,42 +329,36 @@ function renderProjectsTable() {
 
 /* Photo rows */
 let photoRows = [], videoRows = [];
-function fileToDataURL(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('Failed to read file.'));
-    reader.readAsDataURL(file);
-  });
-}
 
 function addPhotoRow(url='', caption='') {
-  const id = Date.now() + Math.random();
+  // Integer-only id — must be a valid CSS identifier suffix (no dots).
+  const id = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
   photoRows.push(id);
   const div = document.createElement('div');
   div.className = 'media-row'; div.id = `photo-row-${id}`;
   div.innerHTML = `
     <span class="media-row-label">Image</span>
     <input type="text" value="${url}" placeholder="Paste URL or use file picker" class="photo-url-${id}" style="flex:2;" />
-    <input type="file" accept="image/*" onchange="handlePhotoFileUpload(event, ${id})" style="flex:1;" />
+    <input type="file" accept="image/*" onchange="handlePhotoFileUpload(event, '${id}')" style="flex:1;" />
     <input type="text" value="${caption}" placeholder="Caption (optional)" class="photo-cap-${id}" style="flex:1;" />
     <button class="btn btn-danger btn-sm" onclick="removeRow('photo-row-${id}')">✕</button>`;
   document.getElementById('photos-container').appendChild(div);
 }
 
 function addVideoRow(type='youtube', id='', url='', caption='') {
-  const rid = Date.now() + Math.random();
+  // Integer-only id — must be a valid CSS identifier suffix (no dots).
+  const rid = `${Date.now()}-${Math.floor(Math.random() * 1e9)}`;
   videoRows.push(rid);
   const div = document.createElement('div');
   div.className = 'media-row'; div.id = `video-row-${rid}`;
   div.innerHTML = `
     <span class="media-row-label">Type</span>
-    <select class="vtype-${rid}" onchange="toggleVideoFields(${rid})">
+    <select class="vtype-${rid}" onchange="toggleVideoFields('${rid}')">
       <option value="youtube"${type==='youtube'?' selected':''}>YouTube</option>
       <option value="direct"${type==='direct'?' selected':''}>Direct URL</option>
     </select>
     <input type="text" value="${type==='youtube'?id:url}" placeholder="${type==='youtube'?'YouTube video ID (e.g. dQw4w9WgXcQ)':'Direct video URL (.mp4)'}" class="vval-${rid}" style="flex:2;" />
-    <input type="file" accept="video/*" onchange="handleVideoFileUpload(event, ${rid})" style="flex:1;" />
+    <input type="file" accept="video/*" onchange="handleVideoFileUpload(event, '${rid}')" style="flex:1;" />
     <input type="text" value="${caption}" placeholder="Caption" class="vcap-${rid}" style="flex:1;" />
     <button class="btn btn-danger btn-sm" onclick="removeRow('video-row-${rid}')">✕</button>`;
   document.getElementById('videos-container').appendChild(div);
@@ -295,35 +367,76 @@ function addVideoRow(type='youtube', id='', url='', caption='') {
 async function handlePhotoFileUpload(e, rid) {
   const file = e.target.files?.[0];
   if (!file) return;
-  if (file.size > 3 * 1024 * 1024) {
-    showToast('⚠️ Photo too large (max 3MB). Use a URL or compress the image.');
-    e.target.value = ''; return;
-  }
   const urlEl = document.querySelector(`.photo-url-${rid}`);
+  showToast('⏳ Uploading photo…');
   try {
-    urlEl.value = await fileToDataURL(file);
+    const url = await uploadToCloudinary(file);
+    urlEl.value = url;
+    await addMediaDoc({ type: 'image', url, name: file.name });
     showToast(`✅ Photo uploaded: ${file.name}`);
-  } catch {
-    showToast('Could not upload photo file.');
+  } catch (err) {
+    console.error('Photo upload failed:', err);
+    showToast('❌ Could not upload photo. Check your connection and try again.');
+    e.target.value = '';
   }
+}
+
+/* ─── VIDEO UPLOAD PROGRESS BAR ─────────────────────────── */
+function showVideoProgress(rid, pct) {
+  const barId  = `vprog-${rid}`;
+  const fillId = `vfill-${rid}`;
+  let bar = document.getElementById(barId);
+  if (!bar) {
+    // Inject below the file input row
+    const fileInput = document.querySelector(`input[onchange*="${rid}"]`);
+    const anchor = fileInput?.closest('div') || document.body;
+    bar = document.createElement('div');
+    bar.id = barId;
+    bar.style.cssText = 'margin-top:6px;height:5px;border-radius:3px;background:rgba(255,255,255,0.07);overflow:hidden;border:1px solid var(--border,#1e2a40)';
+    bar.innerHTML = `<div id="${fillId}" style="height:100%;width:0%;border-radius:3px;background:linear-gradient(90deg,#00f0ff,#7c5cfc);transition:width 0.2s ease;"></div>`;
+    anchor.appendChild(bar);
+  }
+  const fill = document.getElementById(fillId);
+  if (fill) fill.style.width = pct + '%';
+  if (pct >= 100) setTimeout(() => bar?.remove(), 1400);
 }
 
 async function handleVideoFileUpload(e, rid) {
   const file = e.target.files?.[0];
   if (!file) return;
-  if (file.size > 20 * 1024 * 1024) {
-    showToast('⚠️ Video too large for browser storage (max 20MB). Upload to YouTube and use the YouTube ID instead.');
+  if (!/\.mp4$/i.test(file.name) && file.type !== 'video/mp4') {
+    showToast('⚠️ Only MP4 videos are supported.');
+    e.target.value = ''; return;
+  }
+  // Cloudinary free plan: 100 MB per upload
+  const MAX_VIDEO_MB = 100;
+  if (file.size > MAX_VIDEO_MB * 1024 * 1024) {
+    showToast(`⚠️ File too large (${(file.size/1048576).toFixed(0)} MB). Max is ${MAX_VIDEO_MB} MB. Use YouTube instead.`);
     e.target.value = ''; return;
   }
   const typeEl = document.querySelector(`.vtype-${rid}`);
-  const valEl = document.querySelector(`.vval-${rid}`);
+  const valEl  = document.querySelector(`.vval-${rid}`);
   if (typeEl) typeEl.value = 'direct';
   toggleVideoFields(rid);
+  const sizeMB = (file.size / 1048576).toFixed(1);
+  showToast(`⏳ Uploading ${sizeMB} MB video… 0%`);
+  showVideoProgress(rid, 8); // instant feedback
   try {
-    valEl.value = await fileToDataURL(file);
+    const url = await uploadToCloudinary(file, {
+      onProgress: pct => {
+        showToast(`⏳ Uploading video… ${pct}%`);
+        showVideoProgress(rid, pct);
+      }
+    });
+    valEl.value = url;
+    await addMediaDoc({ type: 'video', url, name: file.name });
+    showVideoProgress(rid, 100);
     showToast(`✅ Video uploaded: ${file.name}`);
-  } catch {
-    showToast('Could not upload video file.');
+  } catch (err) {
+    console.error('Video upload failed:', err);
+    document.getElementById(`vprog-${rid}`)?.remove();
+    showToast('❌ Video upload failed: ' + err.message);
+    e.target.value = '';
   }
 }
 
@@ -358,7 +471,7 @@ function collectVideos() {
     const val    = valEl?.value.trim();
     const cap    = capEl?.value.trim() || '';
     if (val) {
-      if (type === 'youtube') videos.push({ type:'youtube', id: val, caption: cap });
+      if (type === 'youtube') videos.push({ type:'youtube', id: normalizeYouTube(val), caption: cap });
       else                    videos.push({ type:'direct',  url: val, caption: cap });
     }
   });
@@ -375,30 +488,74 @@ function guessFormat(url) {
   const ext = url.split('.').pop().toLowerCase().split('?')[0];
   return ['stl','obj','gltf','glb'].includes(ext) ? ext : 'stl';
 }
+/* ─── 3D MODEL UPLOAD WITH PROGRESS ─────────────────────── */
+function show3DProgress(pct) {
+  let bar = document.getElementById('model-upload-progress');
+  if (!bar) {
+    const container = document.getElementById('model-file')?.closest('div') || document.body;
+    bar = document.createElement('div');
+    bar.id = 'model-upload-progress';
+    bar.style.cssText = [
+      'margin-top:8px','height:6px','border-radius:4px',
+      'background:rgba(255,255,255,0.08)','overflow:hidden',
+      'border:1px solid var(--border,#1e2a40)'
+    ].join(';');
+    bar.innerHTML = '<div id="model-upload-fill" style="height:100%;width:0%;border-radius:4px;background:linear-gradient(90deg,#00f0ff,#7c5cfc);transition:width 0.2s ease;"></div>';
+    container.appendChild(bar);
+  }
+  const fill = document.getElementById('model-upload-fill');
+  if (fill) fill.style.width = pct + '%';
+  if (pct >= 100) setTimeout(() => bar.remove(), 1200);
+}
+
 async function handle3DFileUpload(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-  if (file.size > 10 * 1024 * 1024) {
-    showToast('⚠️ 3D file too large (max 10MB). Reduce polygon count or use a URL instead.');
-    e.target.value = ''; return;
+  const dot = file.name.lastIndexOf('.');
+  const ext = dot !== -1 ? file.name.slice(dot + 1).toLowerCase() : '';
+
+  // Size guard — Cloudinary free tier raw limit is 10 MB
+  const MAX_MB = 10;
+  if (file.size > MAX_MB * 1024 * 1024) {
+    showToast(`⚠️ File too large (${(file.size/1048576).toFixed(1)} MB). Max is ${MAX_MB} MB.`);
+    e.target.value = '';
+    return;
   }
+
+  const isModel = MODEL_EXTS.includes(ext);
+  const resourceType = isModel ? 'raw' : 'auto';
+
+  showToast('⏳ Uploading 3D model… 0%');
+  show3DProgress(10); // show immediately so user sees feedback
+
   try {
-    const dataUrl = await fileToDataURL(file);
-    document.getElementById('model-url').value = dataUrl;
-    const dot = file.name.lastIndexOf('.');
-    const ext = dot !== -1 ? file.name.slice(dot + 1).toLowerCase() : '';
-    if (['stl','obj','gltf','glb'].includes(ext)) {
-      document.getElementById('model-format').value = ext;
-      showToast(`✅ 3D file uploaded (${ext.toUpperCase()}): ${file.name}`);
-    } else {
-      showToast(`⚠️ Format "${ext}" may not be supported. Try STL, OBJ, or GLTF/GLB.`);
-    }
-  } catch {
-    showToast('Could not upload 3D file.');
+    const fileUrl = await uploadToCloudinary(file, {
+      resourceType,
+      onProgress: pct => {
+        showToast(`⏳ Uploading… ${pct}%`);
+        show3DProgress(pct);
+      }
+    });
+
+    await addMediaDoc({ type: 'model', url: fileUrl, name: file.name });
+    document.getElementById('model-url').value = fileUrl;
+
+    // Auto-detect format
+    const fmtEl = document.getElementById('model-format');
+    if (fmtEl && ext && ['stl','obj','gltf','glb'].includes(ext)) fmtEl.value = ext;
+
+    show3DProgress(100);
+    showToast(`✅ 3D model uploaded: ${file.name}`);
+  } catch (err) {
+    console.error('3D file upload failed:', err);
+    const bar = document.getElementById('model-upload-progress');
+    if (bar) bar.remove();
+    showToast('❌ Upload failed: ' + err.message);
+    e.target.value = '';
   }
 }
 
-function saveProject() {
+async function saveProject() {
   const title = document.getElementById('proj-title').value.trim();
   const desc  = document.getElementById('proj-desc').value.trim();
   if (!title || !desc) { showToast('Title and description are required.'); return; }
@@ -426,11 +583,14 @@ function saveProject() {
     DATA.projects.push(project);
   }
 
-  saveToStorage();
+  showToast('⏳ Saving to Firebase…');
+  const ok = await saveToStorage();
   renderProjectsTable();
   renderDashboard();
-  clearProjectForm();
-  showToast(editId ? '✅ Project updated!' : '✅ Project added!');
+  if (ok) {
+    clearProjectForm();
+    showToast(editId ? '✅ Project updated & saved to Firebase!' : '✅ Project added & saved to Firebase!');
+  }
 }
 
 function clearProjectForm() {
@@ -489,9 +649,9 @@ function addSkill() {
   const level = parseInt(document.getElementById('skill-level').value);
   if (!name || isNaN(level)) { showToast('Name and level required.'); return; }
   DATA.skills.push({ name, level: Math.min(100, Math.max(0, level)), category: document.getElementById('skill-cat').value });
-  saveToStorage(); renderSkillsList();
+  renderSkillsList();
   document.getElementById('skill-name').value = ''; document.getElementById('skill-level').value = '';
-  showToast('✅ Skill added!');
+  saveToStorage().then(ok => showToast(ok ? '✅ Skill saved to Firebase!' : '❌ Skill save failed.'));
 }
 
 /* ─── EXPERIENCE ─────────────────────────────────────────── */
@@ -520,9 +680,9 @@ function addExperience() {
     description:document.getElementById('exp-desc').value,
     highlights: document.getElementById('exp-highlights').value.split('\n').map(h=>h.trim()).filter(Boolean),
   });
-  saveToStorage(); renderExpList(); renderDashboard();
+  saveToStorage().then(ok => showToast(ok ? '✅ Experience saved to Firebase!' : '❌ Save failed.'));
+  renderExpList(); renderDashboard();
   ['exp-company','exp-role','exp-period','exp-desc','exp-highlights'].forEach(id => document.getElementById(id).value='');
-  showToast('✅ Experience added!');
 }
 
 /* ─── CERTIFICATIONS ─────────────────────────────────────── */
@@ -540,14 +700,10 @@ function renderCertsList() {
 async function handleCertImageUpload(e) {
   const file = e.target.files?.[0];
   if (!file) return;
-  if (file.size > 3 * 1024 * 1024) {
-    showToast('⚠️ Image too large (max 3MB). Use a URL instead or compress the image first.');
-    e.target.value = '';
-    return;
-  }
+  showToast('⏳ Uploading certificate image…');
   try {
-    const dataUrl = await fileToDataURL(file);
-    document.getElementById('cert-image').value = dataUrl;
+    const fileUrl = await uploadToCloudinary(file);
+    document.getElementById('cert-image').value = fileUrl;
     // Show preview
     let preview = document.getElementById('cert-img-preview');
     if (!preview) {
@@ -556,10 +712,12 @@ async function handleCertImageUpload(e) {
       preview.style = 'max-height:100px;border-radius:6px;border:1px solid var(--border);margin-top:.5rem;display:block;';
       document.getElementById('cert-image').parentElement.appendChild(preview);
     }
-    preview.src = dataUrl;
+    preview.src = fileUrl;
     showToast(`✅ Certificate image uploaded: ${file.name}`);
-  } catch {
-    showToast('Could not upload certificate image.');
+  } catch (err) {
+    console.error('Cert image upload failed:', err);
+    showToast('❌ Could not upload image. Try again or paste a URL directly.');
+    e.target.value = '';
   }
 }
 
@@ -573,12 +731,11 @@ function addCert() {
     level: document.getElementById('cert-level').value,
     image: document.getElementById('cert-image').value.trim()
   });
-  saveToStorage(); renderCertsList(); renderDashboard();
+  saveToStorage().then(ok => showToast(ok ? '✅ Cert saved to Firebase!' : '❌ Save failed.')); renderCertsList(); renderDashboard();
   document.getElementById('cert-name').value = ''; document.getElementById('cert-issuer').value = '';
   document.getElementById('cert-image').value = '';
   const certFile = document.getElementById('cert-image-file');
   if (certFile) certFile.value = '';
-  showToast('✅ Certification added!');
 }
 
 /* ─── META ───────────────────────────────────────────────── */
@@ -598,7 +755,7 @@ function saveMeta() {
   DATA.about         = document.getElementById('meta-about').value;
   DATA.analytics     = DATA.analytics || {};
   DATA.analytics.googleAnalyticsId = document.getElementById('meta-ga').value;
-  saveToStorage(); showToast('✅ Profile saved!');
+  saveToStorage().then(ok => showToast(ok ? '✅ Profile saved to Firebase!' : '❌ Profile save failed — check console.'));
 }
 
 /* ─── JSON EDITOR ────────────────────────────────────────── */
@@ -614,9 +771,18 @@ function applyJSON() {
 }
 
 /* ─── STORAGE / DOWNLOAD ─────────────────────────────────── */
-function saveToStorage() {
-  localStorage.setItem('portfolio_data', JSON.stringify(DATA));
-  refreshJSON();
+async function saveToStorage() {
+  try {
+    await initFirebase();
+    await FB.fs.setDoc(FB.fs.doc(FB.db, 'app', FIREBASE_DOC), DATA);
+    refreshJSON();
+    return true;
+  } catch (err) {
+    console.error('Firebase save FAILED:', err);
+    showToast('❌ Firebase save failed: ' + err.message + ' — Download JSON to save locally.');
+    refreshJSON();
+    return false;
+  }
 }
 function downloadJSON() {
   const blob = new Blob([JSON.stringify(DATA, null, 2)], { type:'application/json' });
@@ -628,7 +794,7 @@ function downloadJSON() {
 }
 function resetData() {
   showConfirm('Reset all data to defaults from JSON file?', () => {
-    localStorage.removeItem('portfolio_data'); location.reload();
+    initFirebase().then(() => FB.fs.deleteDoc(FB.fs.doc(FB.db, 'app', FIREBASE_DOC))).then(() => location.reload());
   });
 }
 
@@ -636,7 +802,8 @@ function resetData() {
 function deleteItem(collection, index) {
   showConfirm(`Delete this ${collection.slice(0,-1)}? Cannot be undone.`, () => {
     DATA[collection].splice(index, 1);
-    saveToStorage(); renderAll(); showToast('Item deleted.');
+    saveToStorage().then(ok => showToast(ok ? '🗑️ Item deleted from Firebase.' : '❌ Delete save failed.'));
+    renderAll();
   });
 }
 

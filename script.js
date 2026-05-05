@@ -4,6 +4,41 @@ let DATA = {};
 let viewer3D = null;
 let currentProject = null;
 let mediaKeyHandler = null;
+const FIREBASE_DOC = 'portfolio';
+let firebaseReady = null;
+let FB = {};
+
+function isFirebaseConfigured() {
+  const cfg = window.FIREBASE_CONFIG;
+  return cfg && cfg.apiKey && !cfg.apiKey.startsWith('REPLACE_');
+}
+
+async function initFirebase() {
+  if (firebaseReady) return firebaseReady;
+  // Don't attempt Firebase if config is placeholder — go straight to JSON fallback
+  if (!isFirebaseConfigured()) {
+    throw new Error('Firebase config not set. Using local JSON fallback.');
+  }
+  firebaseReady = (async () => {
+    const [{ initializeApp }, fs] = await Promise.all([
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js'),
+      import('https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js')
+    ]);
+    const app = initializeApp(window.FIREBASE_CONFIG);
+    FB.db = fs.getFirestore(app);
+    FB.fs = fs;
+  })();
+  // If init fails, reset so next call can retry or fall through
+  firebaseReady.catch(() => { firebaseReady = null; });
+  return firebaseReady;
+}
+function youtubeEmbedUrl(input, autoplay = false) {
+  const raw = String(input || '').trim();
+  const m = raw.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{6,})/i);
+  const id = m ? m[1] : raw;
+  const qs = autoplay ? '?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=' + encodeURIComponent(id) : '';
+  return `https://www.youtube.com/embed/${encodeURIComponent(id)}${qs}`;
+}
 
 /* ─── SANITIZE HELPER (XSS prevention) ──────────────────── */
 function esc(str) {
@@ -15,16 +50,16 @@ function esc(str) {
 function mediaUrl(url) {
   if (!url) return '';
   // data: URLs (base64), absolute URLs, and explicit paths pass through unchanged
-  if (/^(https?:)?\/\//i.test(url) || url.startsWith('/') || url.startsWith('./') || url.startsWith('../') || url.startsWith('data:')) return url;
-  return `data/media/${url}`;
+  return url;
 }
 
 /* ─── DATA LOAD ──────────────────────────────────────────── */
 async function loadData() {
   try {
-    const saved = localStorage.getItem('portfolio_data');
-    if (saved) {
-      DATA = JSON.parse(saved);
+    await initFirebase();
+    const snap = await FB.fs.getDoc(FB.fs.doc(FB.db, 'app', FIREBASE_DOC));
+    if (snap.exists()) {
+      DATA = snap.data();
     } else {
       const res = await fetch('data/portfolio.json');
       if (!res.ok) throw new Error('portfolio.json not found: ' + res.status);
@@ -65,7 +100,10 @@ function init() {
 }
 
 /* ─── LOADER ─────────────────────────────────────────────── */
+let _loaderDone = false;
 function initLoader() {
+  if (_loaderDone) return; // Never run twice
+  _loaderDone = true;
   setTimeout(() => {
     document.getElementById('loader').classList.add('hidden');
     triggerHeroAnimation();
@@ -262,7 +300,10 @@ function renderHero() {
   if (nums[0]) nums[0].textContent = '0+';
   if (nums[2]) nums[2].textContent = '0+';
 }
+let _heroAnimDone = false;
 function triggerHeroAnimation() {
+  if (_heroAnimDone) return; // Guard against double-fire
+  _heroAnimDone = true;
   gsap.set(['#hero-badge','#hero-name','#hero-title','#hero-desc','#hero-btns','#hero-stats'], { y: 30 });
   gsap.set('#hero-visual', { x: 50 });
   const tl = gsap.timeline();
@@ -543,7 +584,7 @@ function buildModalMedia(p) {
         if (s.data.type === 'youtube') {
           slideWrap.innerHTML = `
             <div style="position:relative;padding-bottom:56.25%;height:0;border-radius:10px;overflow:hidden;background:#070b14;">
-              <iframe src="https://www.youtube.com/embed/${esc(s.data.id)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&loop=1&playlist=${esc(s.data.id)}"
+              <iframe src="${esc(youtubeEmbedUrl(s.data.id, true))}"
                 style="position:absolute;inset:0;width:100%;height:100%;border:0;"
                 allow="autoplay; encrypted-media; fullscreen" allowfullscreen></iframe>
             </div>
@@ -551,10 +592,10 @@ function buildModalMedia(p) {
         } else {
           slideWrap.innerHTML = `
             <div style="border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);">
-              <video autoplay muted loop playsinline controls
+              <video autoplay muted playsinline controls preload="metadata" loading="lazy"
                 style="width:100%;max-height:440px;display:block;background:#070b14;"
                 onerror="this.parentElement.innerHTML='<div style=&quot;display:flex;align-items:center;justify-content:center;height:200px;color:var(--text-dim);font-family:var(--font-mono);font-size:.8rem;&quot;>Video could not be loaded</div>'">
-                <source src="${esc(mediaUrl(s.data.url))}" />
+                <source src="${esc(mediaUrl(s.data.url))}" type="video/mp4" />
                 Your browser does not support video.
               </video>
             </div>
@@ -564,10 +605,21 @@ function buildModalMedia(p) {
         }
       } else { // 3d model
         slideWrap.innerHTML = `
-          <div id="viewer3d-container"
-            style="width:100%;height:500px;border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);position:relative;"></div>
+          <div style="position:relative;width:100%;">
+            <div id="viewer3d-container"
+              style="width:100%;height:500px;border-radius:10px;overflow:hidden;background:#070b14;border:1px solid var(--border);position:relative;"></div>
+            <button id="fit-view-btn" onclick="if(viewer3D&&viewer3D.fitToView)viewer3D.fitToView();" title="Fit to view"
+              style="position:absolute;top:10px;right:10px;z-index:10;background:rgba(7,11,20,0.82);border:1px solid var(--border);
+                     color:var(--neon);font-family:var(--font-mono);font-size:.62rem;letter-spacing:1.5px;padding:.35rem .7rem;
+                     border-radius:5px;cursor:pointer;backdrop-filter:blur(6px);transition:background .2s,border-color .2s;
+                     display:flex;align-items:center;gap:.35rem;"
+              onmouseover="this.style.background='rgba(0,200,255,0.12)';this.style.borderColor='var(--neon)'"
+              onmouseout="this.style.background='rgba(7,11,20,0.82)';this.style.borderColor='var(--border)'">
+              ⊙ FIT
+            </button>
+          </div>
           <p style="font-size:.7rem;color:var(--text-dim);margin-top:.6rem;text-align:center;letter-spacing:1px;font-family:var(--font-mono);">
-            DRAG · ROTATE &nbsp;|&nbsp; SCROLL · ZOOM &nbsp;|&nbsp; RIGHT-DRAG · PAN
+            DRAG · ROTATE &nbsp;|&nbsp; SCROLL · ZOOM &nbsp;|&nbsp; RIGHT-DRAG · PAN &nbsp;|&nbsp; ⊙ FIT TO VIEW
           </p>`;
         setTimeout(() => init3DViewer(s.data), 80);
       }
@@ -659,8 +711,8 @@ function buildVideoGallery(videos) {
   return `<div class="video-gallery">${videos.map(v => `
     <div class="video-item" style="margin-bottom:1.2rem;">
       ${v.type==='youtube'
-        ? `<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="https://www.youtube.com/embed/${esc(v.id)}" style="position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:0;" allowfullscreen loading="lazy"></iframe></div>`
-        : `<video controls preload="metadata" style="width:100%;border-radius:8px;"><source src="${esc(v.url)}" /></video>`}
+        ? `<div style="position:relative;padding-bottom:56.25%;height:0;"><iframe src="${esc(youtubeEmbedUrl(v.id))}" style="position:absolute;inset:0;width:100%;height:100%;border-radius:8px;border:0;" allowfullscreen loading="lazy"></iframe></div>`
+        : `<video controls muted playsinline preload="metadata" loading="lazy" style="width:100%;border-radius:8px;" onerror="this.outerHTML='<div style=&quot;color:var(--text-dim);font-size:.8rem;&quot;>Video failed to load</div>'"><source src="${esc(mediaUrl(v.url))}" type="video/mp4" /></video>`}
       ${v.caption?`<p style="font-size:.75rem;color:var(--text-dim);margin-top:.4rem;">${esc(v.caption)}</p>`:''}
     </div>`).join('')}</div>`;
 }
@@ -703,7 +755,7 @@ function setupScene(container, modelData) {
   const pt = new THREE.PointLight(0x00ff9d, .7, 20); pt.position.set(0,5,0); scene.add(pt);
   const grid = new THREE.GridHelper(8, 24, 0x00c8ff, 0x112233); grid.position.y = -1.5; scene.add(grid);
 
-  let phi=Math.PI/3, theta=Math.PI/4, radius=4, panX=0, panY=0;
+  let phi=Math.PI/3, theta=Math.PI/4, radius=4, panX=0, panY=0, minDistance=1, maxDistance=5000;
   let isDragging=false, isRight=false, lastX=0, lastY=0;
 
   renderer.domElement.addEventListener('mousedown', e => {
@@ -723,7 +775,7 @@ function setupScene(container, modelData) {
   window.addEventListener('mouseup', onMouseUp);
 
   renderer.domElement.addEventListener('wheel', e => {
-    radius = Math.max(.5, Math.min(30, radius+e.deltaY*.012)); e.preventDefault();
+    radius = Math.max(minDistance, Math.min(maxDistance, radius+e.deltaY*.012)); e.preventDefault();
   }, { passive:false });
 
   let touches = [];
@@ -735,16 +787,21 @@ function setupScene(container, modelData) {
     } else if (e.touches.length===2) {
       const d0=Math.hypot(touches[0].clientX-touches[1].clientX,touches[0].clientY-touches[1].clientY);
       const d1=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);
-      radius=Math.max(.5, Math.min(30, radius-(d1-d0)*.02));
+      radius=Math.max(minDistance, Math.min(maxDistance, radius-(d1-d0)*.02));
     }
     touches=[...e.touches]; e.preventDefault();
   }, { passive:false });
 
   const fmt = (modelData?.format||'').toLowerCase();
   const url = mediaUrl(modelData?.url||'');
-  if      (url.match(/\.stl$/i)||fmt==='stl')              loadSTL(scene,url,THREE,m=>centerModel(m,camera));
-  else if (url.match(/\.obj$/i)||fmt==='obj')              loadOBJ(scene,url,THREE,m=>centerModel(m,camera));
-  else if (url.match(/\.(gltf|glb)$/i)||fmt==='gltf'||fmt==='glb') loadGLTF(scene,url,THREE,m=>centerModel(m.scene||m,camera));
+  const fitToView = (obj) => {
+    const fit = fitModel(camera, obj, { minDistance, maxDistance });
+    panX = fit.center.x; panY = fit.center.y;
+    radius = fit.distance;
+  };
+  if      (url.match(/\.stl$/i)||fmt==='stl')              loadSTL(scene,url,THREE,m=>fitToView(m));
+  else if (url.match(/\.obj$/i)||fmt==='obj')              loadOBJ(scene,url,THREE,m=>fitToView(m));
+  else if (url.match(/\.(gltf|glb)$/i)||fmt==='gltf'||fmt==='glb') loadGLTF(scene,url,THREE,m=>fitToView(m.scene||m));
   else buildDemoModel(scene, THREE);
 
   let raf;
@@ -766,6 +823,16 @@ function setupScene(container, modelData) {
   ro.observe(container);
 
   viewer3D = {
+    fitToView: () => {
+      if (scene.children.length) {
+        let target = null;
+        scene.traverse(obj => { if (obj.isMesh && !target) target = obj; });
+        if (target) {
+          const fit = fitModel(camera, target, { minDistance, maxDistance });
+          if (fit) { panX = 0; panY = 0; radius = fit.distance; }
+        }
+      }
+    },
     dispose: () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
@@ -778,15 +845,18 @@ function setupScene(container, modelData) {
   };
 }
 
-function centerModel(obj, camera) {
+function fitModel(camera, obj, controls) {
   if (!obj) return;
   const box    = new THREE.Box3().setFromObject(obj);
   const center = box.getCenter(new THREE.Vector3());
   const size   = box.getSize(new THREE.Vector3());
   obj.position.sub(center);
   const maxSize = Math.max(size.x, size.y, size.z) || 1;
-  camera.position.z = maxSize * 1.8;
-  camera.position.y = maxSize * 0.18;
+  const fov = camera.fov * (Math.PI / 180);
+  const distance = (maxSize / 2) / Math.tan(fov / 2) * 1.35;
+  camera.position.z = distance;
+  camera.position.y = maxSize * 0.15;
+  return { center, distance: Math.max(controls.minDistance, Math.min(controls.maxDistance, distance)) };
 }
 
 function loadSTL(scene,url,THREE,cb){
